@@ -1,9 +1,10 @@
 mod database;
 mod utils;
 
+use database::DatabaseModel;
 use rocket::http::Status;
-use utils::{json_response, JsonResponse};
 use rocket::serde::{json::Json, Deserialize, Serialize};
+use utils::{json_response, JsonResponse};
 
 #[macro_use]
 extern crate rocket;
@@ -13,36 +14,46 @@ fn wave(name: &str, age: u8) -> String {
     format!("👋 Hello, {} year old named {}!", age, name)
 }
 
-#[post("/", data = "<monitor>")]
-async fn create_monitor<'a>(monitor: Json<database::Monitor>) -> JsonResponse<'a> {
+#[post("/", data = "<data>")]
+async fn create_monitor<'a>(data: Json<uptime_rs::CreateMonitor>) -> JsonResponse<'a> {
     let pool = database::initialize().await;
     let monitor = database::Monitor {
-        id: 1,
-        name: "Monitor 1".into(),
-        ip: "".into(),
-        port: 8080,
+        id: utils::gen_id(),
+        name: data.name.clone(),
+        ip: data.ip.clone(),
+        port: data.port,
     };
 
-    json_response(Status::Ok, Some("YesYes"))
+    let response = match monitor.create(&pool).await {
+        Ok(result) => {
+            let json = serde_json::to_string(&result).unwrap();
+            json_response(Status::Created, Some(json))
+        }
+        Err(_) => json_response(Status::InternalServerError, None),
+    };
+
+    pool.close().await;
+    response
 }
+
 #[get("/<id>")]
 async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
-    let monitor = database::Monitor {
-        id,
-        name: "Monitor 1".into(),
-        ip: "127.0.0.1".into(),
-        port: 8080,
-    };
+    let pool = database::initialize().await;
+    let query_result = database::Monitor::by_id(id, &pool).await;
+    pool.close().await;
 
-    let json = serde_json::to_string(&monitor).unwrap().as_str();
-
-    json_response(Status::Ok, Some(json))
+    match query_result {
+        Some(monitor) => {
+            let json = serde_json::to_string(&monitor).unwrap();
+            json_response(Status::Ok, Some(json))
+        }
+        None => json_response(Status::NotFound, None),
+    }
 }
 
 #[launch]
 async fn rocket() -> _ {
-    let pool = database::initialize().await;
     rocket::build()
         .mount("/wave", routes![wave])
-        .mount("/monitor", routes![get_monitor])
+        .mount("/monitor", routes![get_monitor, create_monitor])
 }
