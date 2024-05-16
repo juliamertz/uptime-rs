@@ -2,17 +2,10 @@ mod database;
 mod utils;
 
 use rocket::http::Status;
-use rocket::tokio;
 use utils::{json_response, JsonResponse};
 
 #[macro_use]
 extern crate rocket;
-
-#[derive(Debug)]
-struct Monitor<'a> {
-    id: &'a str,
-    name: &'a str,
-}
 
 #[get("/<name>/<age>")]
 fn wave(name: &str, age: u8) -> String {
@@ -20,13 +13,15 @@ fn wave(name: &str, age: u8) -> String {
 }
 
 #[get("/<id>")]
-async fn get_monitor(id: &str) -> JsonResponse {
-    let monitor = Monitor {
-        id: &id,
+ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a>{
+    let monitor = database::Monitor {
+        id,
         name: "Monitor 1",
+        ip: "127.0.0.1",
+        port: 8080
     };
 
-    json_response(Status::Ok, Some(&monitor.name))
+    json_response(Status::Ok, Some("YesYes"))
 }
 
 #[launch]
