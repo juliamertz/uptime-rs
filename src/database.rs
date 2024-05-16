@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use dotenv::dotenv;
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
+use serde::{Deserialize, Serialize};
 use std::env;
 
-pub async fn initialize() {
+pub async fn initialize() -> Pool<Sqlite> {
     dotenv().ok();
     let db_path_env = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let database_url = db_path_env.as_str();
@@ -26,9 +27,11 @@ pub async fn initialize() {
 
     Monitor::initialize(&pool).await;
     MonitorPing::initialize(&pool).await;
+
+    pool
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Monitor {
     pub id: i64,
     pub name: String,

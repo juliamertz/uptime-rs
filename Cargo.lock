@@ -1308,6 +1308,7 @@ dependencies = [
  "rocket_codegen",
  "rocket_http",
  "serde",
+ "serde_json",
  "state",
  "tempfile",
  "time",
@@ -2148,6 +2149,8 @@ dependencies = [
  "async-trait",
  "dotenv",
  "rocket",
+ "serde",
+ "serde_json",
  "sqlx",
  "tokio",
 ]

@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.80"
 dotenv = "0.15.0"
-rocket = "0.5.0"
+rocket = { version = "0.5.0", features = ["json"] }
+serde = "1.0.202"
+serde_json = "1.0.117"
 sqlx = { version = "0.7", features = [ "runtime-tokio", "sqlite" ] }
 tokio = { version = "1.37.0", features = ["full"] }
