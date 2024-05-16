@@ -29,22 +29,22 @@ pub async fn initialize() {
 }
 
 #[derive(Debug)]
-pub struct Monitor<'a> {
+pub struct Monitor {
     pub id: i64,
-    pub name: &'a str,
-    pub ip: &'a str,
+    pub name: String,
+    pub ip: String,
     pub port: i32,
 }
 
-pub struct MonitorPing<'a> {
+pub struct MonitorPing {
     pub id: i64,
-    pub monitor_id: &'a i64,
-    pub timestamp: &'a str,
-    pub status: &'a str,
+    pub monitor_id: i64,
+    pub timestamp: String,
+    pub status: String,
 }
 
 #[async_trait]
-impl DatabaseModel for Monitor<'_> {
+impl DatabaseModel for Monitor {
     async fn initialize(pool: &Pool<Sqlite>) {
         if let Err(msg) = sqlx::query!(
             r#"
@@ -96,7 +96,7 @@ impl DatabaseModel for Monitor<'_> {
 }
 
 #[async_trait]
-impl DatabaseModel for MonitorPing<'_> {
+impl DatabaseModel for MonitorPing {
     async fn initialize(pool: &Pool<Sqlite>) {
         if let Err(msg) = sqlx::query!(
             r#"
@@ -143,9 +143,9 @@ impl DatabaseModel for MonitorPing<'_> {
         .await {
             Some(MonitorPing{
                 id: monitor_ping.id,
-                status: monitor_ping.status.as_str(), 
-                timestamp: monitor_ping.timestamp.as_str(),
-                monitor_id: &monitor_ping.monitor_id
+                status: monitor_ping.status, 
+                timestamp: monitor_ping.timestamp,
+                monitor_id: monitor_ping.monitor_id
             })
         }
         else {

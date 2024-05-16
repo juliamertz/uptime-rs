@@ -16,8 +16,8 @@ fn wave(name: &str, age: u8) -> String {
  async fn get_monitor<'a>(id: i64) -> JsonResponse<'a>{
     let monitor = database::Monitor {
         id,
-        name: "Monitor 1",
-        ip: "127.0.0.1",
+        name: "Monitor 1".into(),
+        ip: "127.0.0.1".into(),
         port: 8080
     };
 
