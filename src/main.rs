@@ -1,18 +1,14 @@
 mod database;
+mod ping;
 mod utils;
 
 use database::DatabaseModel;
 use rocket::http::Status;
-use rocket::serde::{json::Json, Deserialize, Serialize};
+use rocket::serde::json::Json;
 use utils::{json_response, JsonResponse};
 
 #[macro_use]
 extern crate rocket;
-
-#[get("/<name>/<age>")]
-fn wave(name: &str, age: u8) -> String {
-    format!("👋 Hello, {} year old named {}!", age, name)
-}
 
 #[post("/", data = "<data>")]
 async fn create_monitor<'a>(data: Json<uptime_rs::CreateMonitor>) -> JsonResponse<'a> {
@@ -53,7 +49,22 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 
 #[launch]
 async fn rocket() -> _ {
-    rocket::build()
-        .mount("/wave", routes![wave])
-        .mount("/monitor", routes![get_monitor, create_monitor])
+    let pool = database::initialize().await;
+    ping::ticker_manager().await;
+
+    // let test = ping::ping("https://www.google.com").await.unwrap();
+    // dbg!(&test);
+    // match test.create(&pool).await {
+    //     Ok(result) => {
+    //         let json = serde_json::to_string(&result).unwrap();
+    //         println!("{}", json);
+    //     }
+    //     Err(_) => {
+    //         println!("Failed to create ping.");
+    //     }
+    // }
+
+    pool.close().await;
+
+    rocket::build().mount("/monitor", routes![get_monitor, create_monitor])
 }

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use dotenv::dotenv;
+use rocket::http::Status;
 use serde::{Deserialize, Serialize};
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
 use std::env;
@@ -44,13 +45,14 @@ pub struct MonitorPing {
     pub id: i64,
     pub monitor_id: i64,
     pub timestamp: String,
-    pub status: String,
+    pub status: Status,
+    pub duration_ms: Option<i64>,
 }
 
 #[async_trait]
 impl DatabaseModel for Monitor {
     async fn initialize(pool: &Pool<Sqlite>) {
-        if let Err(msg) = sqlx::query!(
+        sqlx::query!(
             r#"
             CREATE TABLE IF NOT EXISTS monitor (
                 id INTEGER PRIMARY KEY,
@@ -62,9 +64,7 @@ impl DatabaseModel for Monitor {
         )
         .execute(pool)
         .await
-        {
-            eprintln!("Failed to create monitor table: {}", msg);
-        };
+        .expect("Failed to create monitor table.");
     }
 
     async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, ()> {
@@ -121,8 +121,9 @@ impl DatabaseModel for MonitorPing {
             CREATE TABLE IF NOT EXISTS monitor_ping (
                 id INTEGER PRIMARY KEY,
                 monitor_id INTEGER NOT NULL,
+                status INTEGER NOT NULL,
                 timestamp TEXT NOT NULL,
-                status TEXT NOT NULL,
+                duration_ms INTEGER,
                 FOREIGN KEY (monitor_id) REFERENCES monitor(id)
             );
         "#
@@ -137,11 +138,12 @@ impl DatabaseModel for MonitorPing {
     async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, ()> {
         let query_result = sqlx::query!(
             r#"
-            INSERT INTO monitor_ping (monitor_id, timestamp, status) VALUES (?, ?, ?)
+            INSERT INTO monitor_ping (monitor_id, timestamp, status, duration_ms) VALUES (?, ?, ?, ?)
             "#,
             self.monitor_id,
             self.timestamp,
-            self.status
+            self.status.code,
+            self.duration_ms
         )
         .execute(pool)
         .await;
@@ -152,8 +154,12 @@ impl DatabaseModel for MonitorPing {
                 status: self.status.clone(),
                 timestamp: self.timestamp.clone(),
                 monitor_id: self.monitor_id,
+                duration_ms: self.duration_ms,
             }),
-            Err(_) => Err(()),
+            Err(err) => {
+                eprintln!("Failed to create monitor ping: {}", err);
+                Err(())
+            }
         }
     }
 
@@ -169,9 +175,10 @@ impl DatabaseModel for MonitorPing {
         {
             Some(MonitorPing {
                 id: monitor_ping.id,
-                status: monitor_ping.status,
+                status: Status::from_code(monitor_ping.status as u16).expect("Invalid status code"),
                 timestamp: monitor_ping.timestamp,
                 monitor_id: monitor_ping.monitor_id,
+                duration_ms: monitor_ping.duration_ms,
             })
         } else {
             None
