@@ -2,6 +2,8 @@ mod database;
 mod ping;
 mod utils;
 
+use std::thread;
+
 use database::DatabaseModel;
 use rocket::http::Status;
 use rocket::serde::json::Json;
@@ -14,6 +16,7 @@ extern crate rocket;
 async fn create_monitor<'a>(data: Json<uptime_rs::CreateMonitor>) -> JsonResponse<'a> {
     let pool = database::initialize().await;
     let monitor = database::Monitor {
+        protocol: ping::Protocol::HTTP,
         id: utils::gen_id(),
         name: data.name.clone(),
         ip: data.ip.clone(),
@@ -50,21 +53,23 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 #[launch]
 async fn rocket() -> _ {
     let pool = database::initialize().await;
-    ping::ticker_manager().await;
+    let mut monitor_manager = ping::PingerManager::new();
+    let monitors = database::Monitor::all(&pool).await;
 
-    // let test = ping::ping("https://www.google.com").await.unwrap();
-    // dbg!(&test);
-    // match test.create(&pool).await {
-    //     Ok(result) => {
-    //         let json = serde_json::to_string(&result).unwrap();
-    //         println!("{}", json);
-    //     }
-    //     Err(_) => {
-    //         println!("Failed to create ping.");
-    //     }
-    // }
+    for monitor in monitors {
+        let pinger = ping::Pinger::new(monitor, 3, || {
+            println!("callback");
+        });
+        monitor_manager.add_pinger(pinger);
+    }
+
+    dbg!(monitor_manager);
 
     pool.close().await;
+
+    tokio::spawn(async {
+        monitor_manager.start().await;
+    });
 
     rocket::build().mount("/monitor", routes![get_monitor, create_monitor])
 }

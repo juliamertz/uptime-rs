@@ -1,3 +1,4 @@
+use crate::ping;
 use async_trait::async_trait;
 use dotenv::dotenv;
 use rocket::http::Status;
@@ -38,6 +39,7 @@ pub struct Monitor {
     pub name: String,
     pub ip: String,
     pub port: i64,
+    pub protocol: ping::Protocol,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -47,6 +49,12 @@ pub struct MonitorPing {
     pub timestamp: String,
     pub status: Status,
     pub duration_ms: Option<i64>,
+}
+
+impl Monitor {
+    pub fn address(&self) -> String {
+        format!("{}://{}:{}", self.protocol.as_str(), self.ip, self.port)
+    }
 }
 
 #[async_trait]
@@ -82,6 +90,7 @@ impl DatabaseModel for Monitor {
 
         match query_result {
             Ok(result) => Ok(Monitor {
+                protocol: ping::Protocol::HTTP,
                 id: result.last_insert_rowid(),
                 name: self.name.clone(),
                 ip: self.ip.clone(),
@@ -103,12 +112,37 @@ impl DatabaseModel for Monitor {
 
         match query_result {
             Ok(monitor) => Some(Monitor {
+                protocol: ping::Protocol::HTTP,
                 id: monitor.id,
                 name: monitor.name,
                 ip: monitor.ip,
                 port: monitor.port,
             }),
             Err(_) => None,
+        }
+    }
+
+    async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
+        let query_result = sqlx::query!(
+            r#"
+            SELECT * FROM monitor
+            "#
+        )
+        .fetch_all(pool)
+        .await;
+
+        match query_result {
+            Ok(monitors) => monitors
+                .iter()
+                .map(|monitor| Monitor {
+                    protocol: ping::Protocol::HTTP,
+                    id: monitor.id,
+                    name: monitor.name.clone(),
+                    ip: monitor.ip.clone(),
+                    port: monitor.port,
+                })
+                .collect(),
+            Err(_) => Vec::new(),
         }
     }
 }
@@ -184,6 +218,31 @@ impl DatabaseModel for MonitorPing {
             None
         }
     }
+
+    async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
+        if let Ok(monitor_pings) = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_ping
+            "#
+        )
+        .fetch_all(pool)
+        .await
+        {
+            monitor_pings
+                .iter()
+                .map(|monitor_ping| MonitorPing {
+                    id: monitor_ping.id,
+                    status: Status::from_code(monitor_ping.status as u16)
+                        .expect("Invalid status code"),
+                    timestamp: monitor_ping.timestamp.clone(),
+                    monitor_id: monitor_ping.monitor_id,
+                    duration_ms: monitor_ping.duration_ms,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 #[async_trait]
@@ -195,5 +254,7 @@ pub trait DatabaseModel {
     async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self>
     where
         Self: Sized;
-    // fn all(&self);
+    async fn all(pool: &Pool<Sqlite>) -> Vec<Self>
+    where
+        Self: Sized;
 }

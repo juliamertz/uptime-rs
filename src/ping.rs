@@ -1,94 +1,86 @@
-use rocket::{futures::lock::MutexGuard, http::Status};
-use sqlx::{Pool, Sqlite};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use crate::database;
+use serde::{Deserialize, Serialize};
+use std::{thread, time};
 
-use crate::{database, database::DatabaseModel};
-use chrono;
-use std::time::Instant;
+#[derive(Debug, Deserialize, Serialize)]
+pub enum Protocol {
+    HTTP,
+    HTTPS,
+}
 
-pub async fn ping(address: &str) -> Result<database::MonitorPing, ()> {
-    let start = Instant::now();
-
-    match reqwest::get(address).await {
-        Ok(response) => {
-            let duration = start.elapsed();
-            Ok(database::MonitorPing {
-                status: Status::new(response.status().as_u16()),
-                duration_ms: Some(duration.as_millis() as i64),
-                timestamp: chrono::Utc::now().to_rfc3339(),
-                id: 1,
-                monitor_id: 1,
-            })
+impl Protocol {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Protocol::HTTP => "http",
+            Protocol::HTTPS => "https",
         }
-        Err(_) => Err(()),
     }
 }
 
-pub struct Ticker {
-    pub interval: i64,
+#[derive(Debug)]
+pub struct Pinger {
     pub monitor: database::Monitor,
+    pub timeout_sec: u64,
+    pub callback: fn(),
+    last_ping: u64,
 }
 
-impl Ticker {
-    fn new(interval: i64, monitor: database::Monitor) -> Self {
-        Self { interval, monitor }
-    }
-
-    async fn tick(&self, pool: &Pool<Sqlite>) {
-        let ping = ping(&self.monitor.ip).await.unwrap();
-        ping.create(&pool).await.unwrap();
-    }
-}
-
-struct TickerManager {
-    tickers: Arc<Mutex<Vec<Ticker>>>,
-}
-
-impl TickerManager {
-    async fn new() -> Self {
-        TickerManager {
-            tickers: Arc::new(Mutex::new(Vec::new())),
+impl Pinger {
+    pub fn new(monitor: database::Monitor, timeout_sec: u64, callback: fn()) -> Pinger {
+        Pinger {
+            monitor,
+            callback,
+            timeout_sec,
+            last_ping: timeout_sec,
         }
     }
 
-    async fn add(&self, ticker: Ticker) {
-        let mut tickers = self.tickers.lock().await;
-        tickers.push(ticker);
+    pub async fn ping(&self) -> bool {
+        reqwest::get(&self.monitor.address())
+            .await
+            .map(|res| res.status().is_success())
+            .unwrap_or(false)
     }
 
-    async fn start_ticker(&self, ticker: Arc<Mutex<MutexGuard<'static, Ticker>>>) {
-        let pool = database::initialize().await;
-        let test = ticker.lock().await;
+    pub async fn tick(&mut self) {
+        if self.last_ping >= self.timeout_sec {
+            let is_alive = self.ping().await;
 
-        self.tickers.lock().await.push(test);
-        tokio::spawn(async move {
-            loop {
-                dbg!("Ticking");
-                ticker.lock().await.tick(&pool).await;
-                tokio::time::sleep(tokio::time::Duration::from_secs(
-                    ticker.lock().await.interval as u64,
-                ))
-                .await;
+            if is_alive {
+                println!("{} is alive", self.monitor.address());
+            } else {
+                println!("{} is dead", self.monitor.address());
             }
-        });
+            self.last_ping = 0;
+        }
+
+        self.last_ping += 1;
+    }
+}
+
+#[derive(Debug)]
+pub struct PingerManager {
+    pub pingers: Vec<Pinger>,
+}
+
+impl PingerManager {
+    pub fn new() -> PingerManager {
+        PingerManager {
+            pingers: Vec::new(),
+        }
     }
 
-    async fn test_add(&self) {
-        let test_ticker = Ticker::new(
-            5,
-            database::Monitor {
-                id: 1,
-                name: "Test".to_string(),
-                ip: "https://www.google.com".to_string(),
-                port: 80,
-            },
-        );
+    pub fn add_pinger(&mut self, pinger: Pinger) {
+        self.pingers.push(pinger);
+    }
 
-        test_ticker
-            .start_ticker(Arc::new(Mutex::new(test_ticker)))
-            .await;
+    pub async fn start(&mut self) {
+        loop {
+            for pinger in &mut self.pingers {
+                pinger.tick().await;
+            }
 
-        // self.add(test_ticker).await;
+            thread::sleep(time::Duration::from_secs(1));
+        }
     }
 }
