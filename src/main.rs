@@ -2,11 +2,12 @@ mod database;
 mod ping;
 mod utils;
 
+use std::sync::Arc;
 use std::thread;
 
 use database::DatabaseModel;
-use rocket::http::Status;
 use rocket::serde::json::Json;
+use rocket::{futures::lock::Mutex, http::Status};
 use utils::{json_response, JsonResponse};
 
 #[macro_use]
@@ -53,23 +54,24 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 #[launch]
 async fn rocket() -> _ {
     let pool = database::initialize().await;
-    let mut monitor_manager = ping::PingerManager::new();
+    let monitor_manager = Arc::new(Mutex::new(ping::PingerManager::new()));
     let monitors = database::Monitor::all(&pool).await;
 
     for monitor in monitors {
         let pinger = ping::Pinger::new(monitor, 3, || {
             println!("callback");
         });
-        monitor_manager.add_pinger(pinger);
+        monitor_manager.lock().await.add_pinger(pinger);
     }
 
     dbg!(monitor_manager);
 
     pool.close().await;
 
-    tokio::spawn(async {
-        monitor_manager.start().await;
-    });
+    // let manager = monitor_manager.clone();
+    // tokio::spawn(async move {
+    //     &manager.lock().await.start().await;
+    // });
 
     rocket::build().mount("/monitor", routes![get_monitor, create_monitor])
 }
