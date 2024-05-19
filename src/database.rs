@@ -33,7 +33,7 @@ pub async fn initialize() -> Pool<Sqlite> {
     pool
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Monitor {
     pub id: i64,
     pub name: String,

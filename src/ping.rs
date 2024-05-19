@@ -1,8 +1,9 @@
 use crate::database;
 use serde::{Deserialize, Serialize};
 use std::{thread, time};
+use tokio::sync::Mutex;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Protocol {
     HTTP,
     HTTPS,
@@ -17,7 +18,7 @@ impl Protocol {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pinger {
     pub monitor: database::Monitor,
     pub timeout_sec: u64,
@@ -45,6 +46,7 @@ impl Pinger {
     }
 
     pub async fn tick(&mut self) {
+        dbg!(&self);
         if self.last_ping >= self.timeout_sec {
             let is_alive = self.ping().await;
 
@@ -54,6 +56,7 @@ impl Pinger {
                 println!("{} is dead", self.monitor.address());
             }
             self.last_ping = 0;
+            dbg!(&self);
         }
 
         self.last_ping += 1;
@@ -62,23 +65,24 @@ impl Pinger {
 
 #[derive(Debug)]
 pub struct PingerManager {
-    pub pingers: Vec<Pinger>,
+    pub pingers: Mutex<Vec<Pinger>>,
 }
 
 impl PingerManager {
     pub fn new() -> PingerManager {
         PingerManager {
-            pingers: Vec::new(),
+            pingers: Mutex::new(Vec::new()),
         }
     }
 
-    pub fn add_pinger(&mut self, pinger: Pinger) {
-        self.pingers.push(pinger);
+    pub async fn add_pinger(&mut self, pinger: Pinger) {
+        self.pingers.lock().await.push(pinger);
     }
 
-    pub async fn start(&mut self) {
+    pub async fn start(&self) {
         loop {
-            for pinger in &mut self.pingers {
+            let mut pingers = self.pingers.lock().await;
+            for pinger in pingers.iter_mut() {
                 if pinger.enabled {
                     pinger.tick().await;
                 }

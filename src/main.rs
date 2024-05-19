@@ -5,7 +5,7 @@ mod utils;
 use std::sync::Arc;
 
 use database::DatabaseModel;
-use ping::{Pinger, PingerManager};
+use ping::PingerManager;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket::{futures::lock::Mutex, http::Status};
@@ -17,7 +17,7 @@ extern crate rocket;
 #[post("/", data = "<data>")]
 async fn create_monitor<'a>(
     data: Json<uptime_rs::CreateMonitor>,
-    _manager: &State<PingerManager>,
+    // _manager: &State<PingerManager>,
 ) -> JsonResponse<'a> {
     let pool = database::initialize().await;
     let monitor = database::Monitor {
@@ -40,19 +40,21 @@ async fn create_monitor<'a>(
     response
 }
 
-async fn test_route(manager: &State<PingerManager>) -> JsonResponse {
-    let thingy_mebob = Pinger::new(
-        database::Monitor {
-            protocol: ping::Protocol::HTTP,
-            id: utils::gen_id(),
-            name: "Test".to_string(),
-            ip: "".into(),
-            port: Some(80),
-        },
-        5,
-        || {},
-    );
-    let a = manager.add_pinger(thingy_mebob);
+#[get("/")]
+async fn test_route(manager: &State<Arc<Mutex<PingerManager>>>) -> JsonResponse {
+    dbg!(manager);
+    // let thingy_mebob = Pinger::new(
+    //     database::Monitor {
+    //         protocol: ping::Protocol::HTTP,
+    //         id: utils::gen_id(),
+    //         name: "Test".to_string(),
+    //         ip: "".into(),
+    //         port: Some(80),
+    //     },
+    //     5,
+    //     || {},
+    // );
+    // let a = manager.add_pinger(thingy_mebob);
     json_response(Status::Ok, Some("".to_string()))
 }
 
@@ -78,9 +80,11 @@ async fn rocket() -> _ {
     let monitors = database::Monitor::all(&pool).await;
     pool.close().await;
 
+    dbg!(&monitors);
+
     for monitor in monitors {
         let pinger = ping::Pinger::new(monitor, 3, || {});
-        monitor_pool.lock().await.add_pinger(pinger);
+        monitor_pool.lock().await.add_pinger(pinger).await;
     }
 
     let manager = monitor_pool.clone();
@@ -89,6 +93,7 @@ async fn rocket() -> _ {
     });
 
     rocket::build()
-        .manage(monitor_pool)
         .mount("/monitor", routes![get_monitor, create_monitor])
+        .mount("/test", routes![test_route])
+        .manage(monitor_pool)
 }
