@@ -46,7 +46,6 @@ impl Pinger {
     }
 
     pub async fn tick(&mut self) {
-        dbg!(&self);
         if self.last_ping >= self.timeout_sec {
             let is_alive = self.ping().await;
 
@@ -56,7 +55,6 @@ impl Pinger {
                 println!("{} is dead", self.monitor.address());
             }
             self.last_ping = 0;
-            dbg!(&self);
         }
 
         self.last_ping += 1;
@@ -76,7 +74,9 @@ impl PingerManager {
     }
 
     pub async fn add_pinger(&mut self, pinger: Pinger) {
+        dbg!("Manager successfully locked, adding pinger");
         self.pingers.lock().await.push(pinger);
+        dbg!("Pinger added");
     }
 
     pub async fn start(&self) {

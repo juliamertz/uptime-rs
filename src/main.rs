@@ -40,21 +40,21 @@ async fn create_monitor<'a>(
     response
 }
 
-#[get("/")]
+#[get("/hi")]
 async fn test_route(manager: &State<Arc<Mutex<PingerManager>>>) -> JsonResponse {
-    dbg!(manager);
-    // let thingy_mebob = Pinger::new(
-    //     database::Monitor {
-    //         protocol: ping::Protocol::HTTP,
-    //         id: utils::gen_id(),
-    //         name: "Test".to_string(),
-    //         ip: "".into(),
-    //         port: Some(80),
-    //     },
-    //     5,
-    //     || {},
-    // );
-    // let a = manager.add_pinger(thingy_mebob);
+    let thingy_mabob = ping::Pinger::new(
+        database::Monitor {
+            protocol: ping::Protocol::HTTP,
+            id: utils::gen_id(),
+            name: "Test".to_string(),
+            ip: "www.google.com".into(),
+            port: None,
+        },
+        5,
+        || {},
+    );
+    dbg!("locking manager");
+    manager.lock().await.add_pinger(thingy_mabob).await;
     json_response(Status::Ok, Some("".to_string()))
 }
 
@@ -79,8 +79,6 @@ async fn rocket() -> _ {
     let monitor_pool = Arc::new(Mutex::new(ping::PingerManager::new()));
     let monitors = database::Monitor::all(&pool).await;
     pool.close().await;
-
-    dbg!(&monitors);
 
     for monitor in monitors {
         let pinger = ping::Pinger::new(monitor, 3, || {});

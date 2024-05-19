@@ -79,7 +79,6 @@ impl DatabaseModel for Monitor {
     }
 
     async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, ()> {
-        dbg!(&self.ip);
         let query_result = sqlx::query!(
             r#"
             INSERT INTO monitor (name, ip, port) VALUES (?, ?, ?)
