@@ -38,7 +38,7 @@ pub struct Monitor {
     pub id: i64,
     pub name: String,
     pub ip: String,
-    pub port: i64,
+    pub port: Option<i64>,
     pub protocol: ping::Protocol,
 }
 
@@ -53,7 +53,10 @@ pub struct MonitorPing {
 
 impl Monitor {
     pub fn address(&self) -> String {
-        format!("{}://{}:{}", self.protocol.as_str(), self.ip, self.port)
+        match self.port {
+            Some(port) => format!("{}://{}:{}", self.protocol.as_str(), self.ip, port),
+            None => format!("{}://{}", self.protocol.as_str(), self.ip),
+        }
     }
 }
 
@@ -116,7 +119,7 @@ impl DatabaseModel for Monitor {
                 id: monitor.id,
                 name: monitor.name,
                 ip: monitor.ip,
-                port: monitor.port,
+                port: Some(monitor.port),
             }),
             Err(_) => None,
         }
@@ -139,7 +142,7 @@ impl DatabaseModel for Monitor {
                     id: monitor.id,
                     name: monitor.name.clone(),
                     ip: monitor.ip.clone(),
-                    port: monitor.port,
+                    port: Some(monitor.port),
                 })
                 .collect(),
             Err(_) => Vec::new(),

@@ -3,10 +3,11 @@ mod ping;
 mod utils;
 
 use std::sync::Arc;
-use std::thread;
 
 use database::DatabaseModel;
+use ping::{Pinger, PingerManager};
 use rocket::serde::json::Json;
+use rocket::State;
 use rocket::{futures::lock::Mutex, http::Status};
 use utils::{json_response, JsonResponse};
 
@@ -14,14 +15,17 @@ use utils::{json_response, JsonResponse};
 extern crate rocket;
 
 #[post("/", data = "<data>")]
-async fn create_monitor<'a>(data: Json<uptime_rs::CreateMonitor>) -> JsonResponse<'a> {
+async fn create_monitor<'a>(
+    data: Json<uptime_rs::CreateMonitor>,
+    _manager: &State<PingerManager>,
+) -> JsonResponse<'a> {
     let pool = database::initialize().await;
     let monitor = database::Monitor {
         protocol: ping::Protocol::HTTP,
         id: utils::gen_id(),
         name: data.name.clone(),
         ip: data.ip.clone(),
-        port: data.port,
+        port: Some(data.port),
     };
 
     let response = match monitor.create(&pool).await {
@@ -34,6 +38,22 @@ async fn create_monitor<'a>(data: Json<uptime_rs::CreateMonitor>) -> JsonRespons
 
     pool.close().await;
     response
+}
+
+async fn test_route(manager: &State<PingerManager>) -> JsonResponse {
+    let thingy_mebob = Pinger::new(
+        database::Monitor {
+            protocol: ping::Protocol::HTTP,
+            id: utils::gen_id(),
+            name: "Test".to_string(),
+            ip: "".into(),
+            port: Some(80),
+        },
+        5,
+        || {},
+    );
+    let a = manager.add_pinger(thingy_mebob);
+    json_response(Status::Ok, Some("".to_string()))
 }
 
 #[get("/<id>")]
@@ -54,24 +74,21 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 #[launch]
 async fn rocket() -> _ {
     let pool = database::initialize().await;
-    let monitor_manager = Arc::new(Mutex::new(ping::PingerManager::new()));
+    let monitor_pool = Arc::new(Mutex::new(ping::PingerManager::new()));
     let monitors = database::Monitor::all(&pool).await;
-
-    for monitor in monitors {
-        let pinger = ping::Pinger::new(monitor, 3, || {
-            println!("callback");
-        });
-        monitor_manager.lock().await.add_pinger(pinger);
-    }
-
-    dbg!(monitor_manager);
-
     pool.close().await;
 
-    // let manager = monitor_manager.clone();
-    // tokio::spawn(async move {
-    //     &manager.lock().await.start().await;
-    // });
+    for monitor in monitors {
+        let pinger = ping::Pinger::new(monitor, 3, || {});
+        monitor_pool.lock().await.add_pinger(pinger);
+    }
 
-    rocket::build().mount("/monitor", routes![get_monitor, create_monitor])
+    let manager = monitor_pool.clone();
+    tokio::spawn(async move {
+        manager.lock().await.start().await;
+    });
+
+    rocket::build()
+        .manage(monitor_pool)
+        .mount("/monitor", routes![get_monitor, create_monitor])
 }

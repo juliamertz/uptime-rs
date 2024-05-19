@@ -22,6 +22,7 @@ pub struct Pinger {
     pub monitor: database::Monitor,
     pub timeout_sec: u64,
     pub callback: fn(),
+    pub enabled: bool,
     last_ping: u64,
 }
 
@@ -31,6 +32,7 @@ impl Pinger {
             monitor,
             callback,
             timeout_sec,
+            enabled: true,
             last_ping: timeout_sec,
         }
     }
@@ -77,7 +79,9 @@ impl PingerManager {
     pub async fn start(&mut self) {
         loop {
             for pinger in &mut self.pingers {
-                pinger.tick().await;
+                if pinger.enabled {
+                    pinger.tick().await;
+                }
             }
 
             thread::sleep(time::Duration::from_secs(1));
