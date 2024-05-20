@@ -87,7 +87,12 @@ async fn rocket() -> _ {
 
     let manager = monitor_pool.clone();
     tokio::spawn(async move {
-        manager.lock().await.start().await;
+        let gaurd = manager.lock().await.start().await;
+
+        dbg!("Pinger manager started");
+
+        drop(gaurd);
+        dbg!("Pinger manager dropped");
     });
 
     rocket::build()

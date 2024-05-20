@@ -1,7 +1,8 @@
 use crate::database;
 use serde::{Deserialize, Serialize};
-use std::{thread, time};
-use tokio::sync::Mutex;
+use std::{sync::Arc, thread, time};
+// use tokio::sync::Mutex;
+use rocket::futures::lock::Mutex;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Protocol {
@@ -63,13 +64,13 @@ impl Pinger {
 
 #[derive(Debug)]
 pub struct PingerManager {
-    pub pingers: Mutex<Vec<Pinger>>,
+    pub pingers: Arc<Mutex<Vec<Pinger>>>,
 }
 
 impl PingerManager {
     pub fn new() -> PingerManager {
         PingerManager {
-            pingers: Mutex::new(Vec::new()),
+            pingers: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -80,15 +81,19 @@ impl PingerManager {
     }
 
     pub async fn start(&self) {
-        loop {
-            let mut pingers = self.pingers.lock().await;
-            for pinger in pingers.iter_mut() {
-                if pinger.enabled {
-                    pinger.tick().await;
+        let pingers = self.pingers.clone();
+        tokio::spawn(async move {
+            loop {
+                let mut gaurd = pingers.lock().await;
+                for pinger in gaurd.iter_mut() {
+                    if pinger.enabled {
+                        pinger.tick().await;
+                    }
                 }
-            }
+                drop(gaurd);
 
-            thread::sleep(time::Duration::from_secs(1));
-        }
+                thread::sleep(time::Duration::from_secs(1));
+            }
+        });
     }
 }
