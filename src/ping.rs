@@ -39,7 +39,7 @@ impl Pinger {
         }
     }
 
-    pub async fn ping(&self) -> bool {
+    async fn ping(&self) -> bool {
         reqwest::get(&self.monitor.address())
             .await
             .map(|res| res.status().is_success())
@@ -64,24 +64,25 @@ impl Pinger {
 
 #[derive(Debug)]
 pub struct PingerManager {
+    pub started: bool,
     pub pingers: Arc<Mutex<Vec<Pinger>>>,
 }
 
 impl PingerManager {
     pub fn new() -> PingerManager {
         PingerManager {
+            started: false,
             pingers: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    pub async fn add_pinger(&mut self, pinger: Pinger) {
-        dbg!("Manager successfully locked, adding pinger");
+    pub async fn add_pinger(&self, pinger: Pinger) {
         self.pingers.lock().await.push(pinger);
-        dbg!("Pinger added");
     }
 
-    pub async fn start(&self) {
+    pub async fn start(&mut self) {
         let pingers = self.pingers.clone();
+        self.started = true;
         tokio::spawn(async move {
             loop {
                 let mut gaurd = pingers.lock().await;

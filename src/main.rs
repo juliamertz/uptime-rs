@@ -41,7 +41,7 @@ async fn create_monitor<'a>(
 }
 
 #[get("/hi")]
-async fn test_route(manager: &State<Arc<Mutex<PingerManager>>>) -> JsonResponse {
+async fn test_route(manager: &State<PingerManager>) -> JsonResponse {
     let thingy_mabob = ping::Pinger::new(
         database::Monitor {
             protocol: ping::Protocol::HTTP,
@@ -54,7 +54,7 @@ async fn test_route(manager: &State<Arc<Mutex<PingerManager>>>) -> JsonResponse 
         || {},
     );
     dbg!("locking manager");
-    manager.lock().await.add_pinger(thingy_mabob).await;
+    manager.add_pinger(thingy_mabob).await;
     json_response(Status::Ok, Some("".to_string()))
 }
 
@@ -76,24 +76,16 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 #[launch]
 async fn rocket() -> _ {
     let pool = database::initialize().await;
-    let monitor_pool = Arc::new(Mutex::new(ping::PingerManager::new()));
+    let mut monitor_pool = ping::PingerManager::new();
     let monitors = database::Monitor::all(&pool).await;
     pool.close().await;
 
     for monitor in monitors {
         let pinger = ping::Pinger::new(monitor, 3, || {});
-        monitor_pool.lock().await.add_pinger(pinger).await;
+        monitor_pool.add_pinger(pinger).await;
     }
 
-    let manager = monitor_pool.clone();
-    tokio::spawn(async move {
-        let gaurd = manager.lock().await.start().await;
-
-        dbg!("Pinger manager started");
-
-        drop(gaurd);
-        dbg!("Pinger manager dropped");
-    });
+    monitor_pool.start().await;
 
     rocket::build()
         .mount("/monitor", routes![get_monitor, create_monitor])
