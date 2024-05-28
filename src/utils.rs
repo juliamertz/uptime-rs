@@ -20,6 +20,16 @@ pub fn json_response<'a>(
     }
 }
 
+pub fn serde_response<'a>(
+    _status: Status,
+    serialized: Result<String, serde_json::Error>,
+) -> JsonResponse<'a> {
+    match serialized {
+        Ok(json) => json_response(Status::Ok, Some(json)),
+        Err(_) => json_response(Status::InternalServerError, None),
+    }
+}
+
 pub fn gen_id() -> i64 {
     rand::thread_rng().gen_range(1000..9999)
 }

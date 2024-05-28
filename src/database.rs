@@ -40,6 +40,7 @@ pub struct Monitor {
     pub ip: String,
     pub port: Option<i64>,
     pub protocol: ping::Protocol,
+    pub interval: i64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -97,6 +98,7 @@ impl DatabaseModel for Monitor {
                 name: self.name.clone(),
                 ip: self.ip.clone(),
                 port: self.port,
+                interval: self.interval,
             }),
             Err(_) => Err(()),
         }
@@ -119,6 +121,7 @@ impl DatabaseModel for Monitor {
                 name: monitor.name,
                 ip: monitor.ip,
                 port: Some(monitor.port),
+                interval: monitor.interval,
             }),
             Err(_) => None,
         }
@@ -142,6 +145,7 @@ impl DatabaseModel for Monitor {
                     name: monitor.name.clone(),
                     ip: monitor.ip.clone(),
                     port: Some(monitor.port),
+                    interval: monitor.interval,
                 })
                 .collect(),
             Err(_) => Vec::new(),

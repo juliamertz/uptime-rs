@@ -2,14 +2,12 @@ mod database;
 mod ping;
 mod utils;
 
-use std::sync::Arc;
-
 use database::DatabaseModel;
 use ping::PingerManager;
+use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket::{futures::lock::Mutex, http::Status};
-use utils::{json_response, JsonResponse};
+use utils::{json_response, serde_response, JsonResponse};
 
 #[macro_use]
 extern crate rocket;
@@ -17,10 +15,11 @@ extern crate rocket;
 #[post("/", data = "<data>")]
 async fn create_monitor<'a>(
     data: Json<uptime_rs::CreateMonitor>,
-    // _manager: &State<PingerManager>,
+    manager: &State<PingerManager>,
 ) -> JsonResponse<'a> {
     let pool = database::initialize().await;
     let monitor = database::Monitor {
+        interval: data.interval,
         protocol: ping::Protocol::HTTP,
         id: utils::gen_id(),
         name: data.name.clone(),
@@ -29,33 +28,20 @@ async fn create_monitor<'a>(
     };
 
     let response = match monitor.create(&pool).await {
-        Ok(result) => {
-            let json = serde_json::to_string(&result).unwrap();
-            json_response(Status::Created, Some(json))
-        }
+        Ok(result) => serde_response(Status::Created, serde_json::to_string(&result)),
         Err(_) => json_response(Status::InternalServerError, None),
     };
 
+    manager
+        .add_pinger(ping::Pinger::new(
+            monitor,
+            u64::from(monitor.interval),
+            || {},
+        ))
+        .await;
+
     pool.close().await;
     response
-}
-
-#[get("/hi")]
-async fn test_route(manager: &State<PingerManager>) -> JsonResponse {
-    let thingy_mabob = ping::Pinger::new(
-        database::Monitor {
-            protocol: ping::Protocol::HTTP,
-            id: utils::gen_id(),
-            name: "Test".to_string(),
-            ip: "www.google.com".into(),
-            port: None,
-        },
-        5,
-        || {},
-    );
-    dbg!("locking manager");
-    manager.add_pinger(thingy_mabob).await;
-    json_response(Status::Ok, Some("".to_string()))
 }
 
 #[get("/<id>")]
@@ -66,8 +52,11 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 
     match query_result {
         Some(monitor) => {
-            let json = serde_json::to_string(&monitor).unwrap();
-            json_response(Status::Ok, Some(json))
+            let serialized = serde_json::to_string(&monitor);
+            match serialized {
+                Ok(json) => json_response(Status::Ok, Some(json)),
+                Err(_) => json_response(Status::InternalServerError, None),
+            }
         }
         None => json_response(Status::NotFound, None),
     }
@@ -75,20 +64,18 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 
 #[launch]
 async fn rocket() -> _ {
-    let pool = database::initialize().await;
+    let db = database::initialize().await;
     let mut monitor_pool = ping::PingerManager::new();
-    let monitors = database::Monitor::all(&pool).await;
-    pool.close().await;
 
-    for monitor in monitors {
+    for monitor in database::Monitor::all(&db).await {
         let pinger = ping::Pinger::new(monitor, 3, || {});
         monitor_pool.add_pinger(pinger).await;
     }
 
+    db.close().await;
     monitor_pool.start().await;
 
     rocket::build()
         .mount("/monitor", routes![get_monitor, create_monitor])
-        .mount("/test", routes![test_route])
         .manage(monitor_pool)
 }
