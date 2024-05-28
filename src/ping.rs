@@ -1,8 +1,9 @@
-use crate::database;
+use crate::{database, utils, DatabaseModel};
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
 use std::{sync::Arc, thread, time};
 // use tokio::sync::Mutex;
-use rocket::futures::lock::Mutex;
+use rocket::{futures::lock::Mutex, http::Status};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Protocol {
@@ -22,35 +23,69 @@ impl Protocol {
 #[derive(Debug, Clone)]
 pub struct Pinger {
     pub monitor: database::Monitor,
-    pub timeout_sec: u64,
     pub callback: fn(),
     pub enabled: bool,
-    last_ping: u64,
+    last_ping: i64,
+}
+
+#[derive(Debug)]
+pub struct PingResponse {
+    pub is_alive: bool,
+    pub status: Status,
+    pub duration: Duration,
 }
 
 impl Pinger {
-    pub fn new(monitor: database::Monitor, timeout_sec: u64, callback: fn()) -> Pinger {
+    pub fn new(monitor: database::Monitor, timeout_sec: i64, callback: fn()) -> Pinger {
         Pinger {
             monitor,
             callback,
-            timeout_sec,
             enabled: true,
             last_ping: timeout_sec,
         }
     }
 
-    async fn ping(&self) -> bool {
-        reqwest::get(&self.monitor.address())
-            .await
-            .map(|res| res.status().is_success())
-            .unwrap_or(false)
+    async fn ping(&self) -> PingResponse {
+        let start = Instant::now();
+        let response = reqwest::get(&self.monitor.address()).await;
+        let duration = start.elapsed();
+
+        return match response {
+            Ok(res) => {
+                let status = Status::from_code(res.status().as_u16()).unwrap();
+                PingResponse {
+                    is_alive: res.status().is_success(),
+                    status,
+                    duration,
+                }
+            }
+            Err(_) => PingResponse {
+                is_alive: false,
+                status: Status::InternalServerError,
+                duration,
+            },
+        };
     }
 
     pub async fn tick(&mut self) {
-        if self.last_ping >= self.timeout_sec {
-            let is_alive = self.ping().await;
+        dbg!(&self.last_ping, self.monitor.interval);
+        if self.last_ping >= self.monitor.interval {
+            let ping = self.ping().await;
 
-            if is_alive {
+            if ping.is_alive {
+                let pool = database::initialize().await;
+
+                let ping = database::MonitorPing {
+                    id: utils::gen_id(),
+                    monitor_id: self.monitor.id,
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    status: Status::Ok,
+                    duration_ms: None,
+                };
+
+                ping.create(&pool).await.expect("Failed to create ping");
+                pool.close().await;
+
                 println!("{} is alive", self.monitor.address());
             } else {
                 println!("{} is dead", self.monitor.address());

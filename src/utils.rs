@@ -20,6 +20,15 @@ pub fn json_response<'a>(
     }
 }
 
+pub type TemplateResponse<'a> = status::Custom<content::RawHtml<String>>;
+
+pub fn template_response<'a>(
+    status: Status,
+    content: String,
+) -> status::Custom<content::RawHtml<String>> {
+    status::Custom(status, content::RawHtml(content))
+}
+
 pub fn serde_response<'a>(
     _status: Status,
     serialized: Result<String, serde_json::Error>,

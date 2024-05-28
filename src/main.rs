@@ -2,6 +2,7 @@ mod database;
 mod ping;
 mod utils;
 
+use askama::Template;
 use database::DatabaseModel;
 use ping::PingerManager;
 use rocket::http::Status;
@@ -32,12 +33,9 @@ async fn create_monitor<'a>(
         Err(_) => json_response(Status::InternalServerError, None),
     };
 
+    let interval = monitor.interval.clone();
     manager
-        .add_pinger(ping::Pinger::new(
-            monitor,
-            u64::from(monitor.interval),
-            || {},
-        ))
+        .add_pinger(ping::Pinger::new(monitor, interval, || {}))
         .await;
 
     pool.close().await;
@@ -62,6 +60,20 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
     }
 }
 
+#[derive(Template)]
+#[template(path = "index.j2")]
+struct IndexTemplate<'a> {
+    title: &'a str,
+}
+
+#[get("/")]
+fn index<'a>() -> utils::TemplateResponse<'a> {
+    let hello = IndexTemplate { title: "world" };
+    let html = hello.render().unwrap();
+
+    utils::template_response(Status::Ok, html)
+}
+
 #[launch]
 async fn rocket() -> _ {
     let db = database::initialize().await;
@@ -76,6 +88,7 @@ async fn rocket() -> _ {
     monitor_pool.start().await;
 
     rocket::build()
+        .mount("/", routes![index])
         .mount("/monitor", routes![get_monitor, create_monitor])
         .manage(monitor_pool)
 }
