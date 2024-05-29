@@ -21,15 +21,6 @@ impl Display for Protocol {
     }
 }
 
-impl Protocol {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Protocol::HTTP => "http",
-            Protocol::HTTPS => "https",
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Pinger {
     pub monitor: database::Monitor,
@@ -50,7 +41,7 @@ impl Pinger {
         Pinger {
             monitor,
             callback,
-            enabled: false,
+            enabled: true,
             last_ping: timeout_sec,
         }
     }
@@ -59,6 +50,7 @@ impl Pinger {
         let start = Instant::now();
         let response = reqwest::get(&self.monitor.address()).await;
         let duration = start.elapsed();
+        dbg!(duration.as_millis() as i64);
 
         return match response {
             Ok(res) => {
@@ -90,7 +82,7 @@ impl Pinger {
                     monitor_id: self.monitor.id,
                     timestamp: chrono::Utc::now().to_rfc3339(),
                     status: Status::Ok,
-                    duration_ms: None,
+                    duration_ms: Some(ping.duration.as_millis() as i64),
                 };
 
                 ping.create(&pool).await.expect("Failed to create ping");

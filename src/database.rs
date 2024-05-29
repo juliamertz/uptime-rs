@@ -55,8 +55,8 @@ pub struct MonitorPing {
 impl Monitor {
     pub fn address(&self) -> String {
         match self.port {
-            Some(port) => format!("{}://{}:{}", self.protocol.as_str(), self.ip, port),
-            None => format!("{}://{}", self.protocol.as_str(), self.ip),
+            Some(port) => format!("{}://{}:{}", self.protocol, self.ip, port),
+            None => format!("{}://{}", self.protocol, self.ip),
         }
     }
 }
