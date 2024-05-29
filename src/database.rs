@@ -153,6 +153,56 @@ impl DatabaseModel for Monitor {
     }
 }
 
+impl MonitorPing {
+    async fn last_ping(&self, pool: &Pool<Sqlite>) -> Option<Self> {
+        let query_result = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_ping WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT 1
+            "#,
+            self.monitor_id
+        )
+        .fetch_one(pool)
+        .await;
+
+        match query_result {
+            Ok(monitor_ping) => Some(MonitorPing {
+                id: monitor_ping.id,
+                status: Status::from_code(monitor_ping.status as u16).expect("Invalid status code"),
+                timestamp: monitor_ping.timestamp.clone(),
+                monitor_id: monitor_ping.monitor_id,
+                duration_ms: monitor_ping.duration_ms,
+            }),
+            Err(_) => None,
+        }
+    }
+
+    async fn last_30(&self, pool: &Pool<Sqlite>) -> Vec<Self> {
+        if let Ok(monitor_pings) = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_ping WHERE monitor_id=? ORDER BY timestamp DESC LIMIT 30;
+            "#,
+            self.monitor_id
+        )
+        .fetch_all(pool)
+        .await
+        {
+            monitor_pings
+                .iter()
+                .map(|monitor_ping| MonitorPing {
+                    id: monitor_ping.id,
+                    status: Status::from_code(monitor_ping.status as u16)
+                        .expect("Invalid status code"),
+                    timestamp: monitor_ping.timestamp.clone(),
+                    monitor_id: monitor_ping.monitor_id,
+                    duration_ms: monitor_ping.duration_ms,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+}
+
 #[async_trait]
 impl DatabaseModel for MonitorPing {
     async fn initialize(pool: &Pool<Sqlite>) {
