@@ -61,7 +61,7 @@ async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 }
 
 #[derive(Template)]
-#[template(path = "index.j2")]
+#[template(path = "index.html")]
 struct IndexTemplate<'a> {
     title: &'a str,
 }
