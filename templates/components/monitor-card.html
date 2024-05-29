@@ -1,0 +1,8 @@
+{%- import "macros.html" as scope -%}
+
+<a href="/monitor/{{monitor.id}}">
+  <div class="bg-slate-700 p-3 rounded-md m-3">
+    <h2>{{ monitor.name }}</h2>
+    <p> {% call scope::hostname(monitor) %}  </p>
+  </div>
+</a>

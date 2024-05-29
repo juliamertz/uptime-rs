@@ -1,0 +1,19 @@
+{% import "macros.html" as scope %}
+{% extends "layout.html" %}
+
+{% block content%}
+  <section>
+    <h1 class="text-3xl font-semibold">{{ monitor.name }}</h1>
+    <p class="text-md">
+      <a class="text-blue-600 hover:underline" href="{%- call scope::address(monitor) -%}">
+        {% call scope::hostname(monitor) %}
+      </a>
+    </p>
+  </section>
+
+  <section class="grid bg-slate-900 overflow-hidden rounded-full grid-cols-3 h-12 w-full">
+    <button class="hover:bg-slate-700 rounded-full shadow-sm">Pause</button>
+    <button class="hover:bg-slate-700 rounded-full shadow-sm">Edit</button>
+    <button class="hover:bg-slate-700 rounded-full shadow-sm">Delete</button>
+  </section>
+{% endblock %}

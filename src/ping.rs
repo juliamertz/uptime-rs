@@ -1,5 +1,6 @@
 use crate::{database, utils, DatabaseModel};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::time::{Duration, Instant};
 use std::{sync::Arc, thread, time};
 // use tokio::sync::Mutex;
@@ -9,6 +10,15 @@ use rocket::{futures::lock::Mutex, http::Status};
 pub enum Protocol {
     HTTP,
     HTTPS,
+}
+
+impl Display for Protocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Protocol::HTTP => write!(f, "http"),
+            Protocol::HTTPS => write!(f, "https"),
+        }
+    }
 }
 
 impl Protocol {
@@ -40,7 +50,7 @@ impl Pinger {
         Pinger {
             monitor,
             callback,
-            enabled: true,
+            enabled: false,
             last_ping: timeout_sec,
         }
     }
