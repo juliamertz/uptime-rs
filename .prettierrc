@@ -1,0 +1,9 @@
+tabWidth: 2 
+indentWithTabs: true
+plugins:
+  - prettier-plugin-jinja-template
+overrides:
+- files:
+  - "*.html"
+  options:
+    parser: jinja-template

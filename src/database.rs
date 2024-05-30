@@ -1,4 +1,4 @@
-use crate::ping;
+use crate::{ping, utils};
 use async_trait::async_trait;
 use dotenv::dotenv;
 use rocket::http::Status;
@@ -27,8 +27,12 @@ pub async fn initialize() -> Pool<Sqlite> {
         .await
         .expect("Failed to connect to database");
 
-    Monitor::initialize(&pool).await;
-    MonitorPing::initialize(&pool).await;
+    Monitor::initialize(&pool)
+        .await
+        .expect("Failed to initialize monitor table");
+    MonitorPing::initialize(&pool)
+        .await
+        .expect("Failed to initialize monitor_ping table");
 
     pool
 }
@@ -49,7 +53,8 @@ pub struct MonitorPing {
     pub monitor_id: i64,
     pub timestamp: String,
     pub status: Status,
-    pub duration_ms: Option<i64>,
+    pub duration_ms: i64,
+    pub bad: bool,
 }
 
 impl Monitor {
@@ -63,30 +68,22 @@ impl Monitor {
 
 #[async_trait]
 impl DatabaseModel for Monitor {
-    async fn initialize(pool: &Pool<Sqlite>) {
-        sqlx::query!(
-            r#"
-            CREATE TABLE IF NOT EXISTS monitor (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                ip TEXT NOT NULL,
-                port INTEGER NOT NULL
-            );
-        "#
-        )
-        .execute(pool)
-        .await
-        .expect("Failed to create monitor table.");
+    async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let schema = utils::parse_sql_file("schemas/monitor.sql").await?;
+        sqlx::query(&schema).execute(pool).await?;
+
+        Ok(())
     }
 
-    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, ()> {
+    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
         let query_result = sqlx::query!(
             r#"
-            INSERT INTO monitor (name, ip, port) VALUES (?, ?, ?)
+            INSERT INTO monitor (name, ip, port, interval) VALUES (?, ?, ?, ?)
             "#,
             self.name,
             self.ip,
-            self.port
+            self.port,
+            self.interval
         )
         .execute(pool)
         .await;
@@ -100,7 +97,7 @@ impl DatabaseModel for Monitor {
                 port: self.port,
                 interval: self.interval,
             }),
-            Err(_) => Err(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -120,7 +117,7 @@ impl DatabaseModel for Monitor {
                 id: monitor.id,
                 name: monitor.name,
                 ip: monitor.ip,
-                port: Some(monitor.port),
+                port: monitor.port,
                 interval: monitor.interval,
             }),
             Err(_) => None,
@@ -144,7 +141,7 @@ impl DatabaseModel for Monitor {
                     id: monitor.id,
                     name: monitor.name.clone(),
                     ip: monitor.ip.clone(),
-                    port: Some(monitor.port),
+                    port: monitor.port,
                     interval: monitor.interval,
                 })
                 .collect(),
@@ -154,34 +151,36 @@ impl DatabaseModel for Monitor {
 }
 
 impl MonitorPing {
-    async fn last_ping(&self, pool: &Pool<Sqlite>) -> Option<Self> {
-        let query_result = sqlx::query!(
-            r#"
-            SELECT * FROM monitor_ping WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT 1
-            "#,
-            self.monitor_id
-        )
-        .fetch_one(pool)
-        .await;
+    // async fn last_ping(&self, pool: &Pool<Sqlite>) -> Option<Self> {
+    //     let query_result = sqlx::query!(
+    //         r#"
+    //         SELECT * FROM monitor_ping WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT 1
+    //         "#,
+    //         self.monitor_id
+    //     )
+    //     .fetch_one(pool)
+    //     .await;
+    //
+    //     match query_result {
+    //         Ok(monitor_ping) => Some(MonitorPing {
+    //             id: monitor_ping.id,
+    //             status: Status::from_code(monitor_ping.status as u16).expect("Invalid status code"),
+    //             timestamp: monitor_ping.timestamp.clone(),
+    //             monitor_id: monitor_ping.monitor_id,
+    //             duration_ms: monitor_ping.duration_ms,
+    //             bad: monitor_ping.bad.to_bool(),
+    //         }),
+    //         Err(_) => None,
+    //     }
+    // }
 
-        match query_result {
-            Ok(monitor_ping) => Some(MonitorPing {
-                id: monitor_ping.id,
-                status: Status::from_code(monitor_ping.status as u16).expect("Invalid status code"),
-                timestamp: monitor_ping.timestamp.clone(),
-                monitor_id: monitor_ping.monitor_id,
-                duration_ms: monitor_ping.duration_ms,
-            }),
-            Err(_) => None,
-        }
-    }
-
-    async fn last_30(&self, pool: &Pool<Sqlite>) -> Vec<Self> {
+    pub async fn last_n(pool: &Pool<Sqlite>, monitor_id: i64, n: i64) -> Vec<Self> {
         if let Ok(monitor_pings) = sqlx::query!(
             r#"
-            SELECT * FROM monitor_ping WHERE monitor_id=? ORDER BY timestamp DESC LIMIT 30;
+            SELECT * FROM monitor_ping WHERE monitor_id=? ORDER BY timestamp DESC LIMIT ?;
             "#,
-            self.monitor_id
+            monitor_id,
+            n
         )
         .fetch_all(pool)
         .await
@@ -195,6 +194,7 @@ impl MonitorPing {
                     timestamp: monitor_ping.timestamp.clone(),
                     monitor_id: monitor_ping.monitor_id,
                     duration_ms: monitor_ping.duration_ms,
+                    bad: monitor_ping.bad.to_bool(),
                 })
                 .collect()
         } else {
@@ -203,37 +203,39 @@ impl MonitorPing {
     }
 }
 
+pub trait ToBool {
+    fn to_bool(&self) -> bool;
+}
+
+impl ToBool for i64 {
+    fn to_bool(&self) -> bool {
+        match self {
+            0 => false,
+            1 => true,
+            _ => panic!("Bad value for bool conversion: {}", self),
+        }
+    }
+}
+
 #[async_trait]
 impl DatabaseModel for MonitorPing {
-    async fn initialize(pool: &Pool<Sqlite>) {
-        if let Err(msg) = sqlx::query!(
-            r#"
-            CREATE TABLE IF NOT EXISTS monitor_ping (
-                id INTEGER PRIMARY KEY,
-                monitor_id INTEGER NOT NULL,
-                status INTEGER NOT NULL,
-                timestamp TEXT NOT NULL,
-                duration_ms INTEGER,
-                FOREIGN KEY (monitor_id) REFERENCES monitor(id)
-            );
-        "#
-        )
-        .execute(pool)
-        .await
-        {
-            eprintln!("Failed to create monitor table: {}", msg);
-        };
+    async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let schema = utils::parse_sql_file("schemas/monitor_ping.sql").await?;
+        sqlx::query(&schema).execute(pool).await?;
+
+        Ok(())
     }
 
-    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, ()> {
+    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
         let query_result = sqlx::query!(
             r#"
-            INSERT INTO monitor_ping (monitor_id, timestamp, status, duration_ms) VALUES (?, ?, ?, ?)
+            INSERT INTO monitor_ping (monitor_id, timestamp, status, duration_ms, bad) VALUES (?, ?, ?, ?, ?)
             "#,
             self.monitor_id,
             self.timestamp,
             self.status.code,
-            self.duration_ms
+            self.duration_ms,
+            self.bad
         )
         .execute(pool)
         .await;
@@ -245,11 +247,9 @@ impl DatabaseModel for MonitorPing {
                 timestamp: self.timestamp.clone(),
                 monitor_id: self.monitor_id,
                 duration_ms: self.duration_ms,
+                bad: self.bad,
             }),
-            Err(err) => {
-                eprintln!("Failed to create monitor ping: {}", err);
-                Err(())
-            }
+            Err(err) => Err(err),
         }
     }
 
@@ -269,6 +269,7 @@ impl DatabaseModel for MonitorPing {
                 timestamp: monitor_ping.timestamp,
                 monitor_id: monitor_ping.monitor_id,
                 duration_ms: monitor_ping.duration_ms,
+                bad: monitor_ping.bad.to_bool(),
             })
         } else {
             None
@@ -293,6 +294,7 @@ impl DatabaseModel for MonitorPing {
                     timestamp: monitor_ping.timestamp.clone(),
                     monitor_id: monitor_ping.monitor_id,
                     duration_ms: monitor_ping.duration_ms,
+                    bad: monitor_ping.bad.to_bool(),
                 })
                 .collect()
         } else {
@@ -303,8 +305,8 @@ impl DatabaseModel for MonitorPing {
 
 #[async_trait]
 pub trait DatabaseModel {
-    async fn initialize(pool: &Pool<Sqlite>);
-    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, ()>
+    async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error>;
+    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error>
     where
         Self: Sized;
     async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self>

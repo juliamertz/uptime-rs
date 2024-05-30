@@ -1,0 +1,31 @@
+<section class="bg-surface rounded-md shadow-sm mt-3">
+  <div class="h-12 w-full p-3 flex flex-row gap-1" id="uptime_graph">
+    {% if let Some(data) = uptime_graph %}
+      {% for ping in data %}
+        <div
+          class="bg-pine w-full h-full rounded-md"
+          data-timestamp="{{ ping.timestamp }}"
+          data-duration="{{ ping.duration_ms }}"
+        ></div>
+      {% endfor %}
+    {% else %}
+      <p>No data</p>
+    {% endif %}
+  </div>
+</section>
+<script>
+  const uptime_graph = $("#uptime_graph");
+  console.log(uptime_graph);
+
+  function parse_response_times(wrapper) {
+    const response_times = [];
+    for (child of Array.from(wrapper.children)) {
+      const response_time = child.getAttribute("data-duration");
+      reponse_times.push(response_time);
+    }
+
+    return response_times;
+  }
+
+  parse_response_times(uptime_graph);
+</script>

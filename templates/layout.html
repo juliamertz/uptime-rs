@@ -1,15 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  {% include "head.html" %}
-</head>
-
-<body class="bg-slate-800 text-white">
-  <main class="mt-3 px-12">
-    {% block content %}
-      <h1>Hello world!</h1>
-    {% endblock %}
-  </main>
-</body>
-
+  <head>
+    {% include "head.html" %}
+  </head>
+  <body>
+    <main class="mt-3 px-12">
+      {% block content %}
+        <h1>Hello world!</h1>
+      {% endblock %}
+    </main>
+  </body>
 </html>

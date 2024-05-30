@@ -50,7 +50,6 @@ impl Pinger {
         let start = Instant::now();
         let response = reqwest::get(&self.monitor.address()).await;
         let duration = start.elapsed();
-        dbg!(duration.as_millis() as i64);
 
         return match response {
             Ok(res) => {
@@ -70,7 +69,6 @@ impl Pinger {
     }
 
     pub async fn tick(&mut self) {
-        dbg!(&self.last_ping, self.monitor.interval);
         if self.last_ping >= self.monitor.interval {
             let ping = self.ping().await;
 
@@ -81,8 +79,9 @@ impl Pinger {
                     id: utils::gen_id(),
                     monitor_id: self.monitor.id,
                     timestamp: chrono::Utc::now().to_rfc3339(),
-                    status: Status::Ok,
-                    duration_ms: Some(ping.duration.as_millis() as i64),
+                    status: Status::from_code(ping.status.code).unwrap_or(Status::ImATeapot),
+                    duration_ms: ping.duration.as_millis() as i64,
+                    bad: false,
                 };
 
                 ping.create(&pool).await.expect("Failed to create ping");
@@ -90,6 +89,19 @@ impl Pinger {
 
                 println!("{} is alive", self.monitor.address());
             } else {
+                let pool = database::initialize().await;
+
+                let ping = database::MonitorPing {
+                    id: utils::gen_id(),
+                    monitor_id: self.monitor.id,
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    status: Status::Ok,
+                    duration_ms: ping.duration.as_millis() as i64,
+                    bad: true,
+                };
+
+                ping.create(&pool).await.expect("Failed to create ping");
+                pool.close().await;
                 println!("{} is dead", self.monitor.address());
             }
             self.last_ping = 0;

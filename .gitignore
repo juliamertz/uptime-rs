@@ -1,2 +1,7 @@
 /target
 *.db-*
+*.db
+node_modules/
+package*.json
+*.lock
+static/_dist.css

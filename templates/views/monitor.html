@@ -1,19 +1,41 @@
 {% import "macros.html" as scope %}
 {% extends "layout.html" %}
-
-{% block content%}
+{% block content %}
   <section>
     <h1 class="text-3xl font-semibold">{{ monitor.name }}</h1>
     <p class="text-md">
-      <a class="text-blue-600 hover:underline" href="{%- call scope::address(monitor) -%}">
-        {% call scope::hostname(monitor) %}
-      </a>
+      <a
+        class="text-love hover:underline"
+        href="{%- call scope::address(monitor) -%}"
+        >{% call scope::hostname(monitor) %}</a
+      >
     </p>
   </section>
-
-  <section class="grid bg-slate-900 overflow-hidden rounded-full grid-cols-3 h-12 w-full">
-    <button class="hover:bg-slate-700 rounded-full shadow-sm">Pause</button>
-    <button class="hover:bg-slate-700 rounded-full shadow-sm">Edit</button>
-    <button class="hover:bg-slate-700 rounded-full shadow-sm">Delete</button>
+  <section
+    class="grid bg-surface overflow-hidden rounded-full grid-cols-3 h-12 w-full"
+  >
+    <button class="hover:bg-overlay rounded-full shadow-sm">Pause</button>
+    <button class="hover:bg-overlay rounded-full shadow-sm">Edit</button>
+    <button class="hover:bg-overlay rounded-full shadow-sm">Delete</button>
   </section>
+  {% include "components/uptime_graph.html" %}
+  <div>
+    <h4>Average response time</h4>
+    {% if let Some(val) = average_response_time %}
+      <p>{{ val }}ms</p>
+    {% else %}
+      <p>Not available</p>
+    {% endif %}
+  </div>
+  <div>
+    <h4>Last response time</h4>
+    {% if let Some(val) = last_response_time %}
+      <p>{{ val }}ms</p>
+    {% else %}
+      <p>Not available</p>
+    {% endif %}
+  </div>
+  <div>
+    <p>Checks every {{ monitor.interval }} seconds</p>
+  </div>
 {% endblock %}

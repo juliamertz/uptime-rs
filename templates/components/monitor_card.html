@@ -1,8 +1,12 @@
 {%- import "macros.html" as scope -%}
 
-<a href="/monitor/{{monitor.id}}">
-  <div class="bg-slate-700 p-3 rounded-md m-3">
-    <h2>{{ monitor.name }}</h2>
-    <p> {% call scope::hostname(monitor) %}  </p>
+<a href="/monitor/{{ monitor.id }}">
+  <div class="bg-surface shadow-md p-3 rounded-md m-3">
+    <h2 class="text-2xl font-semibold">{{ monitor.name }}</h2>
+    <a
+      class="text-love hover:underline"
+      href="{%- call scope::address(monitor) -%}"
+      >{% call scope::hostname(monitor) %}</a
+    >
   </div>
 </a>

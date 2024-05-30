@@ -1,6 +1,7 @@
 use rand::Rng;
 use rocket::http::Status;
 use rocket::response::{content, status};
+use std::borrow::Cow;
 
 pub type JsonResponse<'a> = status::Custom<content::RawJson<String>>;
 
@@ -41,4 +42,13 @@ pub fn serde_response<'a>(
 
 pub fn gen_id() -> i64 {
     rand::thread_rng().gen_range(1000..9999)
+}
+
+pub async fn parse_sql_file(file_path: &str) -> std::io::Result<String> {
+    let schema = std::fs::read(file_path)?;
+    let as_string = String::from_utf8_lossy(schema.as_slice());
+    match as_string {
+        Cow::Owned(s) => Ok(s),
+        Cow::Borrowed(s) => Ok(s.to_string()),
+    }
 }

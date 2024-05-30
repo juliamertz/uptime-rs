@@ -1,13 +1,12 @@
-<!-- formatted hostname with optional port -->
-{% macro hostname(monitor) -%}
-  {{- monitor.ip -}}
-  {% match monitor.port -%}
-    {% when Some with (val) -%}
-      :{{ val }}
-    {%- when None %}
-  {%- endmatch %}
-{%- endmacro %}
-
-{% macro address(monitor) -%}
+{%- macro address(monitor) -%}
   {{ monitor.protocol }}://{%- call hostname(monitor) -%}
-{%- endmacro %}
+{%- endmacro -%}
+
+{%- macro hostname(monitor) -%}
+  {%- match monitor.port -%}
+    {%- when Some with (val) -%}
+    {{ monitor.ip }}:{{ val }}
+    {%- when None -%}
+    {{ monitor.ip }}
+  {%- endmatch -%}
+{%- endmacro -%}
