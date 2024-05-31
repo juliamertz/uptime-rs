@@ -2,4 +2,4 @@
 
 bash ./scripts/tailwind.sh
 echo "Building cargo project..."
-cargo build --release
+cargo build --release --verbose
