@@ -1,6 +1,8 @@
 {% import "macros.html" as scope %}
 {% extends "layout.html" %}
+
 {% block content %}
+  <h1>Hello, world</h1>
   <div class="grid grid-cols-[320px,auto]">
     <section hx-get="/monitors" hx-swap="innerHTML" hx-trigger="load"></section>
     <div>

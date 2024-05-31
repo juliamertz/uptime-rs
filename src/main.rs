@@ -2,7 +2,7 @@ mod database;
 mod ping;
 mod utils;
 
-use askama::Template;
+use askama_rocket::Template;
 use database::DatabaseModel;
 use ping::PingerManager;
 use rocket::fs::FileServer;
@@ -199,6 +199,7 @@ async fn rocket() -> _ {
         )
         .mount("/api/monitors", routes![all_monitors])
         .mount("/public", FileServer::from("./static"))
+        .attach(rocket_dyn_templates::Template::fairing())
         .manage(monitor_pool)
 }
 
