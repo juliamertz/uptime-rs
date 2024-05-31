@@ -78,6 +78,52 @@ struct MonitorViewTemplate<'a> {
     last_response_time: Option<i64>,
 }
 
+#[derive(Template)]
+#[template(path = "components/monitor_list.html")]
+struct MonitorListComponentTemplate {
+    monitors: Vec<database::Monitor>,
+}
+
+#[get("/")]
+async fn monitor_list<'a>() -> utils::TemplateResponse<'a> {
+    let pool = database::initialize().await;
+    let monitors = database::Monitor::all(&pool).await;
+    let view = MonitorListComponentTemplate { monitors };
+    let html = view.render().unwrap();
+    pool.close().await;
+    utils::template_response(Status::Ok, html)
+}
+
+#[derive(Template)]
+#[template(path = "components/uptime_graph.html")]
+struct UptimeGraphTemplate {
+    uptime_graph: Option<Vec<database::MonitorPing>>,
+    average_response_time: Option<i64>,
+    last_response_time: Option<i64>,
+    monitor: database::Monitor,
+}
+
+#[get("/<id>/uptime-graph")]
+async fn uptime_graph<'a>(id: i64) -> utils::TemplateResponse<'a> {
+    let pool = database::initialize().await;
+    let uptime_data = database::MonitorPing::last_n(&pool, id, 30).await;
+    let average_response_time = uptime_data
+        .iter()
+        .fold(0, |acc, ping| acc + ping.duration_ms)
+        / uptime_data.len() as i64;
+    let last_response_time = uptime_data.last().unwrap().duration_ms;
+
+    let view = UptimeGraphTemplate {
+        uptime_graph: Some(uptime_data),
+        average_response_time: Some(average_response_time),
+        last_response_time: Some(last_response_time),
+        monitor: database::Monitor::by_id(id, &pool).await.unwrap(),
+    };
+    let html = view.render().unwrap();
+    pool.close().await;
+    utils::template_response(Status::Ok, html)
+}
+
 #[get("/<id>")]
 async fn monitor_view<'a>(id: i64) -> utils::TemplateResponse<'a> {
     let pool = database::initialize().await;
@@ -157,7 +203,8 @@ async fn rocket() -> _ {
 
     rocket::build()
         .mount("/", routes![index])
-        .mount("/monitor", routes![monitor_view])
+        .mount("/monitors", routes![monitor_list])
+        .mount("/monitor", routes![monitor_view, uptime_graph])
         .mount(
             "/api/monitor",
             routes![get_monitor, create_monitor, last_pings],
@@ -165,4 +212,8 @@ async fn rocket() -> _ {
         .mount("/api/monitors", routes![all_monitors])
         .mount("/public", FileServer::from("./static"))
         .manage(monitor_pool)
+}
+
+fn vec_last<'a, T>(vec: &'a Vec<T>) -> Option<&'a T> {
+    vec.last()
 }

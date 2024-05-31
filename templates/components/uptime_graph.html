@@ -1,31 +1,54 @@
-<section class="bg-surface rounded-md shadow-sm mt-3">
-  <div class="h-12 w-full p-3 flex flex-row gap-1" id="uptime_graph">
-    {% if let Some(data) = uptime_graph %}
-      {% for ping in data %}
-        <div
-          class="bg-pine w-full h-full rounded-md"
-          data-timestamp="{{ ping.timestamp }}"
-          data-duration="{{ ping.duration_ms }}"
-        ></div>
-      {% endfor %}
-    {% else %}
-      <p>No data</p>
-    {% endif %}
-  </div>
+<section class="max-w-2xl">
+  <section class="bg-surface rounded-md shadow-sm mt-3">
+    <div class="h-12 w-full p-3 flex flex-row-reverse gap-1" id="uptime_graph">
+      {% if let Some(data) = uptime_graph %}
+        {% for ping in data %}
+          <div
+            class="{% if ping.bad %}bg-red-400{% else %}bg-green-500{% endif %} w-full h-full rounded-md"
+            data-timestamp="{{ ping.timestamp }}"
+            data-duration="{{ ping.duration_ms }}"
+            data-bad="{{ ping.bad }}"
+          ></div>
+        {% endfor %}
+        {% if let Some(last_ping) = self::vec_last(data) %}
+          {% if last_ping.bad %}
+            <div class="bg-red-400 rounded-full p-1">
+              <p class="font-semibold text-md mt-[-7px]">Down</p>
+            </div>
+          {% else %}
+            <div class="bg-green-500 rounded-full p-1">
+              <p class="font-semibold text-md mt-[-7px]">Up</p>
+            </div>
+          {% endif %}
+        {% endif %}
+      {% else %}
+        <p>No data</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section
+    class="bg-surface rounded-md shadow-sm mt-3 text-center grid grid-cols-3 p-3"
+  >
+    <div>
+      <h4 class="font-semibold text-2xl">Average response time</h4>
+      {% if let Some(val) = average_response_time %}
+        <p>{{ val }}ms</p>
+      {% else %}
+        <p>Not available</p>
+      {% endif %}
+    </div>
+    <div>
+      <h4 class="font-semibold text-2xl">Last response time</h4>
+      {% if let Some(val) = last_response_time %}
+        <p>{{ val }}ms</p>
+      {% else %}
+        <p>Not available</p>
+      {% endif %}
+    </div>
+    <div>
+      <h4 class="font-semibold text-2xl">Ping interval</h4>
+      <p>Checks every {{ monitor.interval }} seconds</p>
+    </div>
+  </section>
 </section>
-<script>
-  const uptime_graph = $("#uptime_graph");
-  console.log(uptime_graph);
-
-  function parse_response_times(wrapper) {
-    const response_times = [];
-    for (child of Array.from(wrapper.children)) {
-      const response_time = child.getAttribute("data-duration");
-      reponse_times.push(response_time);
-    }
-
-    return response_times;
-  }
-
-  parse_response_times(uptime_graph);
-</script>
