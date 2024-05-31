@@ -27,6 +27,7 @@ async fn create_monitor<'a>(
         name: data.name.clone(),
         ip: data.ip.clone(),
         port: data.port,
+        paused: false,
     };
 
     let response = match monitor.create(&pool).await {
@@ -73,9 +74,6 @@ struct IndexTemplate<'a> {
 struct MonitorViewTemplate<'a> {
     title: &'a str,
     monitor: database::Monitor,
-    uptime_graph: Option<Vec<database::MonitorPing>>,
-    average_response_time: Option<i64>,
-    last_response_time: Option<i64>,
 }
 
 #[derive(Template)]
@@ -107,6 +105,7 @@ struct UptimeGraphTemplate {
 async fn uptime_graph<'a>(id: i64) -> utils::TemplateResponse<'a> {
     let pool = database::initialize().await;
     let uptime_data = database::MonitorPing::last_n(&pool, id, 30).await;
+    // Divide by zero bug here, fix later!!
     let average_response_time = uptime_data
         .iter()
         .fold(0, |acc, ping| acc + ping.duration_ms)
@@ -131,20 +130,9 @@ async fn monitor_view<'a>(id: i64) -> utils::TemplateResponse<'a> {
 
     let response = match monitor {
         Some(monitor) => {
-            let uptime_data = database::MonitorPing::last_n(&pool, id, 30).await;
-            // Divide by zero bug here, fix later!!
-            let average_response_time = uptime_data
-                .iter()
-                .fold(0, |acc, ping| acc + ping.duration_ms)
-                / uptime_data.len() as i64;
-            let last_response_time = uptime_data.last().unwrap().duration_ms;
-
             let view = MonitorViewTemplate {
                 title: "Monitor",
                 monitor,
-                uptime_graph: Some(uptime_data),
-                average_response_time: Some(average_response_time),
-                last_response_time: Some(last_response_time),
             };
             let html = view.render().unwrap();
             utils::template_response(Status::Ok, html)

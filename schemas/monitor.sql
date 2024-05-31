@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS monitor (
     name TEXT NOT NULL,
     ip TEXT NOT NULL,
     port INTEGER,
-    interval INTEGER NOT NULL
+    interval INTEGER NOT NULL,
+    paused INTEGER NOT NULL
 );
