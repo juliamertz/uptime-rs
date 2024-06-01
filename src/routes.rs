@@ -5,8 +5,6 @@ use askama_rocket::Template;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket_db_pools::sqlx::{self, Row};
-use rocket_db_pools::{Connection, Database};
 
 //
 // monitor_list.html
@@ -25,8 +23,9 @@ pub struct MonitorListComponentTemplate {
 // }
 
 #[get("/")]
-pub async fn monitor_list<'a>(db: Connection<crate::Logs>) -> crate::utils::TemplateResponse<'a> {
-    let monitors = crate::database::Monitor::all(db).await;
+pub async fn monitor_list<'a>() -> crate::utils::TemplateResponse<'a> {
+    let pool = crate::database::initialize().await;
+    let monitors = crate::database::Monitor::all(&pool).await;
     let view = MonitorListComponentTemplate { monitors };
     let html = view.render().unwrap();
     crate::utils::template_response(Status::Ok, html)
@@ -81,9 +80,9 @@ pub struct IndexTemplate<'a> {
 }
 
 #[get("/")]
-pub async fn index<'a>(mut db: Connection<crate::Logs>) -> crate::utils::TemplateResponse<'a> {
+pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
     let pool = crate::database::initialize().await;
-    let monitors = crate::database::Monitor::all(db).await;
+    let monitors = crate::database::Monitor::all(&pool).await;
     pool.close().await;
 
     let hello = IndexTemplate {
@@ -147,9 +146,9 @@ pub async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 }
 
 #[get("/")]
-pub async fn all_monitors<'a>(mut db: Connection<crate::Logs>) -> JsonResponse<'a> {
+pub async fn all_monitors<'a>() -> JsonResponse<'a> {
     let pool = crate::database::initialize().await;
-    let monitors = crate::database::Monitor::all(db).await;
+    let monitors = crate::database::Monitor::all(&pool).await;
     pool.close().await;
 
     serde_response(Status::Ok, serde_json::to_string(&monitors))
