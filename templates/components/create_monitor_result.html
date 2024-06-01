@@ -1,0 +1,6 @@
+{% match result %}
+  {% when Ok with (monitor) %}
+  {{ monitor.name }}
+  {% when Err with (msg) %}
+  {{ msg }}
+{% endmatch %}

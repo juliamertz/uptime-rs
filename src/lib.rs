@@ -1,6 +1,7 @@
+use rocket::FromForm;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, FromForm, Serialize)]
 pub struct CreateMonitor {
     pub name: String,
     pub ip: String,

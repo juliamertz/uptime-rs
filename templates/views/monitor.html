@@ -1,18 +1,22 @@
-{% import "macros.html" as scope %}
 {% extends "layout.html" %}
 
 {% block content %}
-  <div class="grid grid-cols-[320px,auto]">
-    <section hx-get="/monitors" hx-swap="innerHTML" hx-trigger="load"></section>
+  <div class="gap-6 grid grid-cols-[320px,auto]">
+    <nav class="flex flex-col gap-3">
+      <a href="/monitor/create" class="button self-end">Create new monitor</a>
+      <section
+        hx-get="/monitors"
+        hx-swap="innerHTML"
+        hx-trigger="load"
+      ></section>
+    </nav>
     <div>
       <section>
         <h1 class="text-3xl font-semibold">{{ monitor.name }}</h1>
         <p class="text-md">
-          <a
-            class="text-love hover:underline"
-            href="{%- call scope::address(monitor) -%}"
-            >{% call scope::hostname(monitor) %}</a
-          >
+          <a class="text-love hover:underline" href="{{ monitor.address() }}">
+            {{ monitor.hostname() }}
+          </a>
         </p>
       </section>
       <section
@@ -29,9 +33,18 @@
             Pause
           {% endif %}
         </button>
-        <button class="hover:bg-overlay rounded-full shadow-sm">Edit</button>
+        <button
+          class="hover:bg-overlay rounded-full shadow-sm"
+          hx-get="/monitor/{{ monitor.id }}/edit"
+          hx-swap="innerHTML"
+          hx-target="#selected_tab"
+        >
+          Edit
+        </button>
         <button class="hover:bg-overlay rounded-full shadow-sm">Delete</button>
       </section>
+
+      <div id="selected_tab"></div>
 
       <section
         hx-get="/monitor/{{ monitor.id }}/uptime-graph"

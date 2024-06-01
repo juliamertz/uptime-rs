@@ -1,19 +1,22 @@
-{%- import "macros.html" as scope -%}
-
 <button
   hx-on:click="window.location = '/monitor/{{ monitor.id }}'"
   data-monitor-id="{{ monitor.id }}"
   class="w-full"
 >
-  <!-- hx-get="/monitor/{{ monitor.id }}" -->
-  <!-- hx-target="main" -->
-  <div class="bg-surface shadow-md p-3 rounded-md m-3">
-    <h2 class="text-2xl font-semibold">{{ monitor.name }}</h2>
-    <a
-      class="text-love hover:underline"
-      href="{%- call scope::address(monitor) -%}"
-      >{% call scope::hostname(monitor) %}</a
+  <div class="bg-surface flex flex-row gap-2 shadow-md p-3 rounded-md">
+    <div class="w-full text-left">
+      <h2 class="text-2xl font-semibold">{{ monitor.name }}</h2>
+      <a class="text-love hover:underline" href="{{ monitor.address() }}"
+        >{{ monitor.hostname() }}</a
+      >
+    </div>
+    {% let up = false %}
+    <div
+      hx-get="/monitor/{{ monitor.id }}/status-badge"
+      hx-trigger="every {{ monitor.interval }}s, load"
+      hx-swap="innerHTML"
     >
+      {% include "components/monitor_status_badge.html" %}
+    </div>
   </div>
-  {% call scope::monitor_up_status_badge(true) %}
 </button>

@@ -6,4 +6,18 @@
   body {
     @apply bg-base text-text;
   }
+
+  .button {
+    @apply py-2 px-3 bg-love text-text text-sm rounded-full;
+  }
+
+  .form-field {
+    @apply flex flex-col gap-1;
+    label {
+      @apply font-semibold text-sm;
+    }
+    input {
+      @apply text-base border border-surface accent-love rounded-md;
+    }
+  }
 }

@@ -62,3 +62,10 @@ pub async fn parse_sql_file(file_path: &str) -> std::io::Result<String> {
 pub fn vec_last<'a, T>(vec: &'a Vec<T>) -> Option<&'a T> {
     vec.last()
 }
+
+pub fn get_average_ping_duration(pings: &Vec<crate::database::MonitorPing>) -> i64 {
+    if pings.len() == 0 {
+        return 0;
+    }
+    pings.iter().fold(0, |acc, ping| acc + ping.duration_ms) / pings.len() as i64
+}

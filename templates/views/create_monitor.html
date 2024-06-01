@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1 class="text-3xl mb-3 font-semibold">Create new monitor</h1>
+  <form hx-post="/monitor">
+    <div class="form-field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" />
+    </div>
+    <div class="form-field">
+      <label for="ip">IP</label>
+      <input type="text" id="ip" name="ip" />
+    </div>
+    <div class="form-field">
+      <label for="port">Port</label>
+      <input type="number" id="port" name="port" />
+    </div>
+    <div class="form-field">
+      <label for="interval">Interval</label>
+      <input type="number" id="interval" name="interval" />
+    </div>
+    <button class="button " type="submit">Create</button>
+  </form>
+{% endblock %}

@@ -19,8 +19,6 @@ pub async fn initialize() -> Pool<Sqlite> {
         Sqlite::create_database(database_url)
             .await
             .expect("Failed to create database");
-
-        println!("Database created");
     }
 
     let pool = SqlitePool::connect(database_url)
@@ -59,6 +57,12 @@ pub struct MonitorPing {
 }
 
 impl Monitor {
+    pub fn hostname(&self) -> String {
+        match self.port {
+            Some(port) => format!("{}:{}", self.ip, port),
+            None => format!("{}", self.ip),
+        }
+    }
     pub fn address(&self) -> String {
         match self.port {
             Some(port) => format!("{}://{}:{}", self.protocol, self.ip, port),

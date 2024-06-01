@@ -32,7 +32,12 @@ async fn rocket() -> _ {
             routes![
                 routes::monitor_view,
                 routes::uptime_graph,
-                routes::pause_monitor
+                routes::pause_monitor,
+                routes::create_monitor,
+                routes::edit_monitor_view,
+                routes::update_monitor,
+                routes::monitor_status_badge,
+                routes::create_monitor_view,
             ],
         )
         .mount(
@@ -41,11 +46,7 @@ async fn rocket() -> _ {
         )
         .mount(
             "/api/monitor",
-            routes![
-                routes::get_monitor,
-                routes::create_monitor,
-                routes::last_pings
-            ],
+            routes![routes::get_monitor, routes::last_pings],
         )
         .mount(
             "/api/monitors", //

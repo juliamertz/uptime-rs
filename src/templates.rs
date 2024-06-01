@@ -4,6 +4,12 @@ use askama_rocket::Template;
 // Views
 
 #[derive(Template)]
+#[template(path = "views/create_monitor.html")]
+pub struct CreateMonitorViewTemplate<'a> {
+    pub title: &'a str,
+}
+
+#[derive(Template)]
 #[template(path = "views/monitor.html")]
 pub struct MonitorViewTemplate<'a> {
     pub title: &'a str,
@@ -29,13 +35,24 @@ pub struct MonitorListComponentTemplate {
 #[template(path = "components/uptime_graph.html")]
 pub struct UptimeGraphTemplate {
     pub uptime_graph: Option<Vec<MonitorPing>>,
-    pub average_response_time: Option<i64>,
-    pub last_response_time: Option<i64>,
     pub monitor: Monitor,
 }
 
 #[derive(Template)]
-#[template(path = "components/up_status_card.html")]
-pub struct UpStatusCardTemplate {
+#[template(path = "components/monitor_status_badge.html")]
+pub struct MonitorStatusBadgeTemplate {
+    pub monitor: Monitor,
     pub up: bool,
+}
+
+#[derive(Template)]
+#[template(path = "components/create_monitor_result.html")]
+pub struct CreateMonitorResultTemplate {
+    pub result: Result<Monitor, sqlx::Error>,
+}
+
+#[derive(Template)]
+#[template(path = "components/edit_monitor.html")]
+pub struct EditMonitorView {
+    pub monitor: Monitor,
 }

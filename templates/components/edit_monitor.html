@@ -1,0 +1,31 @@
+<form hx-put="/monitor/{{ monitor.id }}">
+  <div class="form-field">
+    <label for="name">Name</label>
+    <input type="text" id="name" name="name" value="{{ monitor.name }}" />
+  </div>
+  <div class="form-field">
+    <label for="ip">IP</label>
+    <input type="text" id="ip" name="ip" value="{{ monitor.ip }}" />
+  </div>
+  <div class="form-field">
+    <label for="port">Port</label>
+    <input
+      type="number"
+      id="port"
+      name="port"
+      {% if let Some(port) = monitor.port %}
+        value="{{ port }}"
+      {% endif %}
+    />
+  </div>
+  <div class="form-field">
+    <label for="interval">Interval</label>
+    <input
+      type="number"
+      id="interval"
+      name="interval"
+      value="{{ monitor.interval }}"
+    />
+  </div>
+  <button class="button " type="submit">Save changes</button>
+</form>

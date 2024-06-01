@@ -38,10 +38,11 @@ pub struct PingResponse {
 
 impl Pinger {
     pub fn new(monitor: database::Monitor, timeout_sec: i64, callback: fn()) -> Pinger {
+        let enabled = !&monitor.paused;
         Pinger {
             monitor,
             callback,
-            enabled: true,
+            enabled,
             last_ping: timeout_sec,
         }
     }
