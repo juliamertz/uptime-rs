@@ -1,6 +1,7 @@
 mod database;
 mod ping;
 mod routes;
+mod templates;
 mod utils;
 
 use database::DatabaseModel;
@@ -29,7 +30,11 @@ async fn rocket() -> _ {
         )
         .mount(
             "/monitor",
-            routes![routes::monitor_view, routes::uptime_graph],
+            routes![
+                routes::monitor_view,
+                routes::uptime_graph,
+                routes::pause_monitor
+            ],
         )
         .mount(
             "/monitors", //

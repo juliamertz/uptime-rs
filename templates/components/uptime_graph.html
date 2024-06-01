@@ -10,7 +10,7 @@
             data-bad="{{ ping.bad }}"
           ></div>
         {% endfor %}
-        {% if let Some(last_ping) = self::vec_last(data) %}
+        {% if let Some(last_ping) = crate::utils::vec_last(data) %}
           {% if last_ping.bad %}
             <div class="bg-red-400 rounded-full p-1">
               <p class="font-semibold text-md mt-[-7px]">Down</p>
@@ -52,3 +52,5 @@
     </div>
   </section>
 </section>
+
+<script></script>

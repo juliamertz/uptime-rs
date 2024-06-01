@@ -65,6 +65,25 @@ impl Monitor {
             None => format!("{}://{}", self.protocol, self.ip),
         }
     }
+
+    pub async fn toggle_paused(id: i64, pool: &Pool<Sqlite>) -> Result<bool, sqlx::Error> {
+        let monitor = Monitor::by_id(id, pool).await.unwrap();
+        let paused = !monitor.paused;
+        let query_result = sqlx::query!(
+            r#"
+            UPDATE monitor SET paused = ? WHERE id = ?
+            "#,
+            paused,
+            id
+        )
+        .execute(pool)
+        .await;
+
+        match query_result {
+            Ok(_) => Ok(paused),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 #[async_trait]

@@ -1,51 +1,31 @@
 use crate::database::DatabaseModel;
 use crate::ping::PingerManager;
+use crate::templates::{
+    IndexTemplate, MonitorListComponentTemplate, MonitorViewTemplate, UptimeGraphTemplate,
+};
 use crate::utils::{json_response, serde_response, JsonResponse};
 use askama_rocket::Template;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
+use serde::Serialize;
 
 //
 // monitor_list.html
 //
-#[derive(Template)]
-#[template(path = "components/monitor_list.html")]
-pub struct MonitorListComponentTemplate {
-    pub monitors: Vec<crate::database::Monitor>,
-}
-
-// async fn read(mut db: Connection<Logs>, id: i64) -> Option<String> {
-//     sqlx::query("SELECT content FROM logs WHERE id = ?").bind(id)
-//         .fetch_one(&mut **db).await
-//         .and_then(|r| Ok(r.try_get(0)?))
-//         .ok()
-// }
 
 #[get("/")]
 pub async fn monitor_list<'a>() -> crate::utils::TemplateResponse<'a> {
     let pool = crate::database::initialize().await;
     let monitors = crate::database::Monitor::all(&pool).await;
     let view = MonitorListComponentTemplate { monitors };
-    let html = view.render().unwrap();
-    crate::utils::template_response(Status::Ok, html)
+
+    crate::utils::template_response(Status::Ok, view.render())
 }
 
 //
 // uptime_graph.html
 //
-#[derive(Template)]
-#[template(path = "components/uptime_graph.html")]
-pub struct UptimeGraphTemplate {
-    uptime_graph: Option<Vec<crate::database::MonitorPing>>,
-    average_response_time: Option<i64>,
-    last_response_time: Option<i64>,
-    monitor: crate::database::Monitor,
-}
-
-fn vec_last<'a, T>(vec: &'a Vec<T>) -> Option<&'a T> {
-    vec.last()
-}
 
 #[get("/<id>/uptime-graph")]
 pub async fn uptime_graph<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
@@ -64,20 +44,13 @@ pub async fn uptime_graph<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
         last_response_time: Some(last_response_time),
         monitor: crate::database::Monitor::by_id(id, &pool).await.unwrap(),
     };
-    let html = view.render().unwrap();
     pool.close().await;
-    crate::utils::template_response(Status::Ok, html)
+    crate::utils::template_response(Status::Ok, view.render())
 }
 
 //
 // index.html
 //
-#[derive(Template)]
-#[template(path = "views/index.html")]
-pub struct IndexTemplate<'a> {
-    title: &'a str,
-    monitors: Vec<crate::database::Monitor>,
-}
 
 #[get("/")]
 pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
@@ -89,20 +62,33 @@ pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
         title: "world",
         monitors,
     };
-    let html = hello.render().unwrap();
 
-    crate::utils::template_response(Status::Ok, html)
+    crate::utils::template_response(Status::Ok, hello.render())
 }
+
+//
+// up_status_card.html
+//
+
+// #[get("/<id>/up-status")]
+// pub async fn up_status_card<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
+//     let pool = crate::database::initialize().await;
+//     let monitor = crate::database::Monitor::by_id(id, &pool).await.unwrap();
+//     let pings = crate::database::MonitorPing::last_n(&pool, id, 1).await;
+//     // let up = match pings.first() {
+//     //     Some(ping) => ping.status == crate::ping::Status::UP,
+//     //     None => false,
+//     // };
+//
+//     let view = UpStatusCardTemplate { up };
+//     let html = view.render().unwrap();
+//     pool.close().await;
+//     crate::utils::template_response(Status::Ok, html)
+// }
 
 //
 // monitor.html
 //
-#[derive(Template)]
-#[template(path = "views/monitor.html")]
-pub struct MonitorViewTemplate<'a> {
-    title: &'a str,
-    monitor: crate::database::Monitor,
-}
 
 #[get("/<id>")]
 pub async fn monitor_view<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
@@ -115,10 +101,9 @@ pub async fn monitor_view<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
                 title: "Monitor",
                 monitor,
             };
-            let html = view.render().unwrap();
-            crate::utils::template_response(Status::Ok, html)
+            crate::utils::template_response(Status::Ok, view.render())
         }
-        None => crate::utils::template_response(Status::NotFound, String::from("Not found")),
+        None => crate::utils::template_response(Status::NotFound, Ok(String::from("Not found"))),
     };
     pool.close().await;
     response
@@ -152,6 +137,22 @@ pub async fn all_monitors<'a>() -> JsonResponse<'a> {
     pool.close().await;
 
     serde_response(Status::Ok, serde_json::to_string(&monitors))
+}
+
+#[post("/<id>/pause")]
+pub async fn pause_monitor(id: i64) -> String {
+    let pool = crate::database::initialize().await;
+    let paused = crate::database::Monitor::toggle_paused(id, &pool).await;
+    pool.close().await;
+    // add header for htmx to refresh on success
+    match paused {
+        Ok(paused) => match paused {
+            true => "Resume".into(),
+            false => "Pause".into(),
+        },
+
+        Err(_) => "Error".into(),
+    }
 }
 
 #[get("/<monitor_id>/ping/last/<n>")]

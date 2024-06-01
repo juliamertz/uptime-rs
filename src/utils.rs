@@ -25,9 +25,15 @@ pub type TemplateResponse<'a> = status::Custom<content::RawHtml<String>>;
 
 pub fn template_response<'a>(
     status: Status,
-    content: String,
+    content: Result<String, askama_rocket::Error>,
 ) -> status::Custom<content::RawHtml<String>> {
-    status::Custom(status, content::RawHtml(content))
+    match content {
+        Ok(content) => status::Custom(status, content::RawHtml(content)),
+        Err(e) => {
+            let content = format!("<h1>{}</h1>", status.reason().unwrap_or_else(|| "Unknown"));
+            status::Custom(status, content::RawHtml(content))
+        }
+    }
 }
 
 pub fn serde_response<'a>(
@@ -51,4 +57,8 @@ pub async fn parse_sql_file(file_path: &str) -> std::io::Result<String> {
         Cow::Owned(s) => Ok(s),
         Cow::Borrowed(s) => Ok(s.to_string()),
     }
+}
+
+pub fn vec_last<'a, T>(vec: &'a Vec<T>) -> Option<&'a T> {
+    vec.last()
 }

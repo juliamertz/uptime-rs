@@ -2,7 +2,6 @@
 {% extends "layout.html" %}
 
 {% block content %}
-  <h1>Hello, world</h1>
   <div class="grid grid-cols-[320px,auto]">
     <section hx-get="/monitors" hx-swap="innerHTML" hx-trigger="load"></section>
     <div>
@@ -19,7 +18,17 @@
       <section
         class="grid bg-surface overflow-hidden rounded-full grid-cols-3 h-12 w-full"
       >
-        <button class="hover:bg-overlay rounded-full shadow-sm">Pause</button>
+        <button
+          class="hover:bg-overlay rounded-full shadow-sm"
+          hx-post="/monitor/{{ monitor.id }}/pause"
+          hx-swap="innerHTML"
+        >
+          {% if monitor.paused %}
+            Resume
+          {% else %}
+            Pause
+          {% endif %}
+        </button>
         <button class="hover:bg-overlay rounded-full shadow-sm">Edit</button>
         <button class="hover:bg-overlay rounded-full shadow-sm">Delete</button>
       </section>
