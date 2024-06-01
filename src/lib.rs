@@ -14,22 +14,3 @@ pub struct CreateMonitorPing {
     pub timestamp: String,
     pub status: String,
 }
-
-pub enum DatabaseConnection {
-    Rocket(Option<()>),
-    Sqlx(sqlx::Pool<sqlx::Sqlite>),
-}
-
-#[macro_export]
-macro_rules! db_conn {
-    ( $a:ident ) => {{
-        let conn = $a;
-        match conn {
-            DatabaseConnection::Rocket(_) => {
-                let pool = crate::database::initialize().await;
-                DatabaseConnection::Sqlx(pool)
-            }
-            DatabaseConnection::Sqlx(pool) => DatabaseConnection::Sqlx(pool),
-        }
-    }};
-}

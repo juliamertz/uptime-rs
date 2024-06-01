@@ -29,7 +29,7 @@ pub fn template_response<'a>(
 ) -> status::Custom<content::RawHtml<String>> {
     match content {
         Ok(content) => status::Custom(status, content::RawHtml(content)),
-        Err(e) => {
+        Err(_) => {
             let content = format!("<h1>{}</h1>", status.reason().unwrap_or_else(|| "Unknown"));
             status::Custom(status, content::RawHtml(content))
         }

@@ -71,10 +71,9 @@ impl Pinger {
     pub async fn tick(&mut self) {
         if self.last_ping >= self.monitor.interval {
             let ping = self.ping().await;
+            let pool = database::initialize().await;
 
             if ping.is_alive {
-                let pool = database::initialize().await;
-
                 let ping = database::MonitorPing {
                     id: utils::gen_id(),
                     monitor_id: self.monitor.id,
@@ -85,12 +84,9 @@ impl Pinger {
                 };
 
                 ping.create(&pool).await.expect("Failed to create ping");
-                pool.close().await;
 
                 println!("{} is alive", self.monitor.address());
             } else {
-                let pool = database::initialize().await;
-
                 let ping = database::MonitorPing {
                     id: utils::gen_id(),
                     monitor_id: self.monitor.id,
@@ -101,9 +97,10 @@ impl Pinger {
                 };
 
                 ping.create(&pool).await.expect("Failed to create ping");
-                pool.close().await;
                 println!("{} is dead", self.monitor.address());
             }
+
+            pool.close().await;
             self.last_ping = 0;
         }
 

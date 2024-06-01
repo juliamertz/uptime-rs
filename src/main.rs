@@ -12,15 +12,14 @@ extern crate rocket;
 
 #[launch]
 async fn rocket() -> _ {
-    let db = database::initialize().await;
+    let db_pool = database::initialize().await;
     let mut monitor_pool = ping::PingerManager::new();
 
-    for monitor in database::Monitor::all(&db).await {
+    for monitor in database::Monitor::all(&db_pool).await {
         let pinger = ping::Pinger::new(monitor, 3, || {});
         monitor_pool.add_pinger(pinger).await;
     }
 
-    db.close().await;
     monitor_pool.start().await;
 
     rocket::build()
@@ -54,4 +53,5 @@ async fn rocket() -> _ {
         )
         .mount("/public", FileServer::from("./static"))
         .manage(monitor_pool)
+        .manage(db_pool)
 }

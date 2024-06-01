@@ -8,15 +8,14 @@ use askama_rocket::Template;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
-use serde::Serialize;
+
+use sqlx::{Pool, Sqlite};
 
 //
 // monitor_list.html
 //
-
 #[get("/")]
-pub async fn monitor_list<'a>() -> crate::utils::TemplateResponse<'a> {
-    let pool = crate::database::initialize().await;
+pub async fn monitor_list<'a>(pool: &State<Pool<Sqlite>>) -> crate::utils::TemplateResponse<'a> {
     let monitors = crate::database::Monitor::all(&pool).await;
     let view = MonitorListComponentTemplate { monitors };
 
@@ -26,11 +25,12 @@ pub async fn monitor_list<'a>() -> crate::utils::TemplateResponse<'a> {
 //
 // uptime_graph.html
 //
-
 #[get("/<id>/uptime-graph")]
-pub async fn uptime_graph<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
-    let pool = crate::database::initialize().await;
-    let uptime_data = crate::database::MonitorPing::last_n(&pool, id, 30).await;
+pub async fn uptime_graph<'a>(
+    pool: &State<Pool<Sqlite>>,
+    id: i64,
+) -> crate::utils::TemplateResponse<'a> {
+    let uptime_data = crate::database::MonitorPing::last_n(pool, id, 30).await;
     // Divide by zero bug here, fix later!!
     let average_response_time = uptime_data
         .iter()
@@ -42,21 +42,18 @@ pub async fn uptime_graph<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
         uptime_graph: Some(uptime_data),
         average_response_time: Some(average_response_time),
         last_response_time: Some(last_response_time),
-        monitor: crate::database::Monitor::by_id(id, &pool).await.unwrap(),
+        monitor: crate::database::Monitor::by_id(id, pool).await.unwrap(),
     };
-    pool.close().await;
+
     crate::utils::template_response(Status::Ok, view.render())
 }
 
 //
 // index.html
 //
-
 #[get("/")]
-pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
-    let pool = crate::database::initialize().await;
+pub async fn index<'a>(pool: &State<Pool<Sqlite>>) -> crate::utils::TemplateResponse<'a> {
     let monitors = crate::database::Monitor::all(&pool).await;
-    pool.close().await;
 
     let hello = IndexTemplate {
         title: "world",
@@ -71,8 +68,10 @@ pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
 //
 
 // #[get("/<id>/up-status")]
-// pub async fn up_status_card<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
-//     let pool = crate::database::initialize().await;
+// pub async fn up_status_card<'a>(
+//     pool: &State<Pool<Sqlite>>,
+//     id: i64,
+// ) -> crate::utils::TemplateResponse<'a> {
 //     let monitor = crate::database::Monitor::by_id(id, &pool).await.unwrap();
 //     let pings = crate::database::MonitorPing::last_n(&pool, id, 1).await;
 //     // let up = match pings.first() {
@@ -82,7 +81,6 @@ pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
 //
 //     let view = UpStatusCardTemplate { up };
 //     let html = view.render().unwrap();
-//     pool.close().await;
 //     crate::utils::template_response(Status::Ok, html)
 // }
 
@@ -91,9 +89,12 @@ pub async fn index<'a>() -> crate::utils::TemplateResponse<'a> {
 //
 
 #[get("/<id>")]
-pub async fn monitor_view<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
-    let pool = crate::database::initialize().await;
+pub async fn monitor_view<'a>(
+    pool: &State<Pool<Sqlite>>,
+    id: i64,
+) -> crate::utils::TemplateResponse<'a> {
     let monitor = crate::database::Monitor::by_id(id, &pool).await;
+    dbg!(&pool);
 
     let response = match monitor {
         Some(monitor) => {
@@ -105,7 +106,6 @@ pub async fn monitor_view<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
         }
         None => crate::utils::template_response(Status::NotFound, Ok(String::from("Not found"))),
     };
-    pool.close().await;
     response
 }
 
@@ -113,10 +113,8 @@ pub async fn monitor_view<'a>(id: i64) -> crate::utils::TemplateResponse<'a> {
 // Json routes
 //
 #[get("/<id>")]
-pub async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
-    let pool = crate::database::initialize().await;
+pub async fn get_monitor<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> JsonResponse<'a> {
     let query_result = crate::database::Monitor::by_id(id, &pool).await;
-    pool.close().await;
 
     match query_result {
         Some(monitor) => {
@@ -131,19 +129,15 @@ pub async fn get_monitor<'a>(id: i64) -> JsonResponse<'a> {
 }
 
 #[get("/")]
-pub async fn all_monitors<'a>() -> JsonResponse<'a> {
-    let pool = crate::database::initialize().await;
+pub async fn all_monitors<'a>(pool: &State<Pool<Sqlite>>) -> JsonResponse<'a> {
     let monitors = crate::database::Monitor::all(&pool).await;
-    pool.close().await;
 
     serde_response(Status::Ok, serde_json::to_string(&monitors))
 }
 
 #[post("/<id>/pause")]
-pub async fn pause_monitor(id: i64) -> String {
-    let pool = crate::database::initialize().await;
+pub async fn pause_monitor(pool: &State<Pool<Sqlite>>, id: i64) -> String {
     let paused = crate::database::Monitor::toggle_paused(id, &pool).await;
-    pool.close().await;
     // add header for htmx to refresh on success
     match paused {
         Ok(paused) => match paused {
@@ -156,10 +150,12 @@ pub async fn pause_monitor(id: i64) -> String {
 }
 
 #[get("/<monitor_id>/ping/last/<n>")]
-pub async fn last_pings<'a>(monitor_id: i64, n: i64) -> JsonResponse<'a> {
-    let pool = crate::database::initialize().await;
+pub async fn last_pings<'a>(
+    pool: &State<Pool<Sqlite>>,
+    monitor_id: i64,
+    n: i64,
+) -> JsonResponse<'a> {
     let pings = crate::database::MonitorPing::last_n(&pool, monitor_id, n).await;
-    pool.close().await;
 
     serde_response(Status::Ok, serde_json::to_string(&pings))
 }
@@ -167,9 +163,9 @@ pub async fn last_pings<'a>(monitor_id: i64, n: i64) -> JsonResponse<'a> {
 #[post("/", data = "<data>")]
 pub async fn create_monitor<'a>(
     data: Json<uptime_rs::CreateMonitor>,
+    pool: &State<Pool<Sqlite>>,
     manager: &State<PingerManager>,
 ) -> JsonResponse<'a> {
-    let pool = crate::database::initialize().await;
     let monitor = crate::database::Monitor {
         interval: data.interval,
         protocol: crate::ping::Protocol::HTTP,
@@ -190,6 +186,5 @@ pub async fn create_monitor<'a>(
         .add_pinger(crate::ping::Pinger::new(monitor, interval, || {}))
         .await;
 
-    pool.close().await;
     response
 }
