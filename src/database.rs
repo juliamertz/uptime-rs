@@ -4,24 +4,22 @@ use dotenv::dotenv;
 use rocket::http::Status;
 use serde::{Deserialize, Serialize};
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
-use std::env;
+
+const DATABASE_URL: &str = "sqlite:database.db";
 
 pub async fn initialize() -> Pool<Sqlite> {
     dotenv().ok();
-    let db_path_env = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let database_url = db_path_env.as_str();
-
-    let exists = Sqlite::database_exists(database_url)
+    let exists = Sqlite::database_exists(DATABASE_URL)
         .await
         .expect("Failed to check if database exists");
 
     if !exists {
-        Sqlite::create_database(database_url)
+        Sqlite::create_database(DATABASE_URL)
             .await
             .expect("Failed to create database");
     }
 
-    let pool = SqlitePool::connect(database_url)
+    let pool = SqlitePool::connect(DATABASE_URL)
         .await
         .expect("Failed to connect to database");
 
@@ -105,7 +103,7 @@ impl DatabaseModel for Monitor {
             self.name,
             self.ip,
             self.port,
-            self.interval
+            self.interval,
         )
         .execute(pool)
         .await;
