@@ -70,6 +70,14 @@ impl Monitor {
         }
     }
 
+    pub async fn is_up(self, db: &Pool<Sqlite>) -> bool {
+        MonitorPing::last_n(db, self.id, 1)
+            .await
+            .first()
+            .map(|ping| ping.bad)
+            .unwrap_or(false)
+    }
+
     pub async fn toggle_paused(id: i64, pool: &Pool<Sqlite>) -> Result<bool, sqlx::Error> {
         let monitor = Monitor::by_id(id, pool).await.unwrap();
         let paused = !monitor.paused;
@@ -306,7 +314,7 @@ impl DatabaseModel for MonitorPing {
     async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
         if let Ok(monitor_pings) = sqlx::query!(
             r#"
-            SELECT * FROM monitor_ping
+            SELECT * FROM monitor_ping ORDER BY timestamp DESC;
             "#
         )
         .fetch_all(pool)

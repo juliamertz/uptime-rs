@@ -1,5 +1,6 @@
 use crate::{database, utils, DatabaseModel};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::time::{Duration, Instant};
 use std::{sync::Arc, thread, time};
@@ -112,19 +113,19 @@ impl Pinger {
 #[derive(Debug)]
 pub struct PingerManager {
     pub started: bool,
-    pub pingers: Arc<Mutex<Vec<Pinger>>>,
+    pub pingers: Arc<Mutex<HashMap<i64, Pinger>>>,
 }
 
 impl PingerManager {
     pub fn new() -> PingerManager {
         PingerManager {
             started: false,
-            pingers: Arc::new(Mutex::new(Vec::new())),
+            pingers: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub async fn add_pinger(&self, pinger: Pinger) {
-        self.pingers.lock().await.push(pinger);
+        self.pingers.lock().await.insert(pinger.monitor.id, pinger);
     }
 
     pub async fn start(&mut self) {
@@ -133,7 +134,7 @@ impl PingerManager {
         tokio::spawn(async move {
             loop {
                 let mut gaurd = pingers.lock().await;
-                for pinger in gaurd.iter_mut() {
+                for (_, pinger) in gaurd.iter_mut() {
                     if pinger.enabled {
                         pinger.tick().await;
                     }

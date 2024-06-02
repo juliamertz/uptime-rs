@@ -1,16 +1,14 @@
-use std::io::Cursor;
-
 use crate::{
     database::{self, DatabaseModel},
     ping::{self, PingerManager},
     templates::*,
-    utils::{self, template_response},
+    utils::{self},
 };
 use askama_rocket::Template;
 use rocket::{
-    form::{validate::Len, Contextual, Form},
-    http::{Header, Status},
-    Response, State,
+    form::{Contextual, Form},
+    http::Status,
+    State,
 };
 use sqlx::{Pool, Sqlite};
 use uptime_rs::CreateMonitor;
@@ -189,16 +187,16 @@ pub async fn update_monitor<'a>(
     form: Form<Contextual<'a, CreateMonitor>>,
 ) -> String {
     match form.value {
-        Some(ref data) => {
-            let monitor = database::Monitor {
-                interval: data.interval,
-                protocol: ping::Protocol::HTTP,
-                id,
-                name: data.name.clone(),
-                ip: data.ip.clone(),
-                port: data.port,
-                paused: false,
-            };
+        Some(ref _data) => {
+            // let monitor = database::Monitor {
+            //     interval: data.interval,
+            //     protocol: ping::Protocol::HTTP,
+            //     id,
+            //     name: data.name.clone(),
+            //     ip: data.ip.clone(),
+            //     port: data.port,
+            //     paused: false,
+            // };
 
             "aight".into()
             // let response = match monitor.update(&pool).await {

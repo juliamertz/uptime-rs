@@ -7,7 +7,7 @@
       >
         {% for ping in data %}
           <div
-            class="{% if ping.bad %}bg-red-400{% else %}bg-green-500{% endif %} w-full h-full rounded-md"
+            class="{% if ping.bad %}bg-love{% else %}bg-pine{% endif %} w-full h-full rounded-md"
             data-timestamp="{{ ping.timestamp }}"
             data-duration="{{ ping.duration_ms }}"
             data-bad="{{ ping.bad }}"
@@ -16,19 +16,14 @@
         {% for i in (0 .. 30 - data.len()) %}
           <div class="bg-overlay w-full h-full rounded-md"></div>
         {% endfor %}
-        <!-- {% if let Some(last_ping) = data.last() %} -->
-        <!--   {% if last_ping.bad %} -->
-        <!--     <div class="bg-red-400 rounded-full p-1"> -->
-        <!--       <p class="font-semibold text-md mt-[-7px]">Down</p> -->
-        <!--     </div> -->
-        <!--   {% else %} -->
-        <!--     <div class="bg-green-500 rounded-full p-1"> -->
-        <!--       <p class="font-semibold text-md mt-[-7px]">Up</p> -->
-        <!--     </div> -->
-        <!--   {% endif %} -->
-        <!-- {% endif %} -->
       </div>
     </section>
+
+    <div
+      class="mt-3 relative w-full aspect-[16/8] bg-surface rounded-md overflow-hidden"
+    >
+      <canvas id="uptime_chart"></canvas>
+    </div>
 
     <section
       class="bg-surface rounded-md shadow-sm mt-3 text-center grid grid-cols-3 p-3"
@@ -55,4 +50,44 @@
   {% endif %}
 </section>
 
-<script></script>
+<script>
+  (() => {
+    const $ = (selector) => document.querySelector(selector);
+    const attr = (el, name) => el.getAttribute(name);
+
+    const labels = [];
+    const data = [];
+
+    const uptime_graph = $("#uptime_graph");
+    for (const ping of Array.from(uptime_graph.children).reverse()) {
+      const duration = attr(ping, "data-duration");
+      const timestamp = attr(ping, "data-timestamp");
+      const date = new Date(timestamp);
+
+      if (!timestamp) labels.push("-");
+      else labels.push(date.toLocaleTimeString());
+
+      data.push(duration);
+    }
+
+    const canvas = $("#uptime_chart");
+
+    new Chart(canvas, {
+      type: "line",
+      responsive: true,
+      aspectRatio: 16 / 9,
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Response time (ms)",
+            data,
+            fill: false,
+            borderColor: "#9ccfd8",
+            tension: 0.1,
+          },
+        ],
+      },
+    });
+  })();
+</script>
