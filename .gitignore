@@ -2,7 +2,7 @@
 *.db-*
 *.db
 node_modules/
-package*.json
+package-lock.json
 *.lock
 static/_dist.css
 bun.lockb

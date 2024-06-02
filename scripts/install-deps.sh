@@ -3,7 +3,7 @@ NODE_BIN=./node_modules/.bin
 
 if [ ! -f $NODE_BIN/tailwindcss ]; then
   echo "Installing tailwindcss..."
-  npm install tailwindcss autoprefixer postcss
+  npm install tailwindcss autoprefixer postcss @tailwindcss/container-queries
 else
   echo "tailwindcss already installed"
 fi

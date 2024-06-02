@@ -11,7 +11,7 @@ use rocket::{
     State,
 };
 use sqlx::{Pool, Sqlite};
-use uptime_rs::CreateMonitor;
+use uptime_rs::{CreateMonitor, RedirectResponder};
 use utils::{json_response, serde_response, JsonResponse};
 
 //
@@ -59,9 +59,7 @@ pub async fn index<'a>(pool: &State<Pool<Sqlite>>) -> utils::TemplateResponse<'a
 // create_monitor.html
 //
 #[get("/create")]
-pub async fn create_monitor_view<'a>(pool: &State<Pool<Sqlite>>) -> utils::TemplateResponse<'a> {
-    // let monitors = database::Monitor::all(&pool).await;
-
+pub async fn create_monitor_view<'a>() -> utils::TemplateResponse<'a> {
     let hello = CreateMonitorViewTemplate { title: "world" };
 
     utils::template_response(Status::Ok, hello.render())
@@ -132,9 +130,14 @@ pub async fn all_monitors<'a>(pool: &State<Pool<Sqlite>>) -> JsonResponse<'a> {
 }
 
 #[post("/<id>/pause")]
-pub async fn pause_monitor(pool: &State<Pool<Sqlite>>, id: i64) -> String {
-    let paused = database::Monitor::toggle_paused(id, &pool).await;
+pub async fn pause_monitor(
+    pool: &State<Pool<Sqlite>>,
+    id: i64,
+    pinger_manager: &State<PingerManager>,
+) -> String {
+    let paused = database::Monitor::toggle_paused(id, &pool, pinger_manager).await;
     // add header for htmx to refresh on success
+    // pinger_manager.update_pinger(monitor)
     match paused {
         Ok(paused) => match paused {
             true => "Resume".into(),
@@ -180,33 +183,76 @@ pub async fn edit_monitor_view<'a>(
     utils::template_response(Status::Ok, view.render())
 }
 
-#[put("/<id>/edit", data = "<form>")]
+#[put("/<id>", data = "<form>")]
 pub async fn update_monitor<'a>(
     pool: &State<Pool<Sqlite>>,
     id: i64,
     form: Form<Contextual<'a, CreateMonitor>>,
-) -> String {
+    pinger_manager: &State<PingerManager>,
+) -> RedirectResponder {
     match form.value {
-        Some(ref _data) => {
-            // let monitor = database::Monitor {
-            //     interval: data.interval,
-            //     protocol: ping::Protocol::HTTP,
-            //     id,
-            //     name: data.name.clone(),
-            //     ip: data.ip.clone(),
-            //     port: data.port,
-            //     paused: false,
-            // };
+        Some(ref data) => {
+            let monitor = database::Monitor {
+                interval: data.interval,
+                protocol: ping::Protocol::HTTP,
+                id,
+                name: data.name.clone(),
+                ip: data.ip.clone(),
+                port: data.port,
+                paused: false,
+            };
 
-            "aight".into()
-            // let response = match monitor.update(&pool).await {
-            //     Ok(result) => "ok".into(),
-            //     Err(msg) => "err".into(),
-            // };
-            //
-            // response
+            let response = match monitor.update(&pool).await {
+                Ok(result) => match pinger_manager.update_pinger(result.clone()).await {
+                    Ok(_) => {
+                        let templ = EditMonitorView {
+                            monitor: result.clone(),
+                        };
+
+                        RedirectResponder {
+                            content: templ.render().unwrap(),
+                            redirect_uri: Some(uri!("/monitor", monitor_view(id))),
+                        }
+                    }
+                    Err(_) => RedirectResponder {
+                        content: "Failed to update pinger, changes will be applied after restart"
+                            .into(),
+                        redirect_uri: None,
+                    },
+                },
+                Err(msg) => RedirectResponder {
+                    content: msg.to_string(),
+                    redirect_uri: None,
+                },
+            };
+
+            response
         }
-        None => "no".into(),
+        None => RedirectResponder {
+            content: "no".into(),
+            redirect_uri: None,
+        },
+    }
+}
+
+#[delete("/<id>")]
+pub async fn delete_monitor<'a>(
+    pool: &State<Pool<Sqlite>>,
+    pinger_manager: &State<PingerManager>,
+    id: i64,
+) -> RedirectResponder {
+    match database::Monitor::delete(id, pool).await {
+        Ok(_monitor) => {
+            pinger_manager.remove_pinger(id).await;
+            RedirectResponder {
+                content: "ok".into(),
+                redirect_uri: Some(uri!("/")),
+            }
+        }
+        Err(err) => RedirectResponder {
+            content: err.to_string(),
+            redirect_uri: None,
+        },
     }
 }
 
@@ -218,10 +264,10 @@ pub async fn create_monitor<'a>(
 ) -> String {
     match form.value {
         Some(ref data) => {
-            let monitor = database::Monitor {
+            let mut monitor = database::Monitor {
                 interval: data.interval,
                 protocol: ping::Protocol::HTTP,
-                id: utils::gen_id(),
+                id: 0,
                 name: data.name.clone(),
                 ip: data.ip.clone(),
                 port: data.port,
@@ -229,11 +275,15 @@ pub async fn create_monitor<'a>(
             };
 
             let response = match monitor.create(&pool).await {
-                Ok(result) => "ok".into(),
-                Err(msg) => "err".into(),
+                Ok(result) => {
+                    monitor.id = result.id;
+                    "ok".into()
+                }
+                Err(_) => "err".into(),
             };
 
             let interval = monitor.interval.clone();
+
             manager
                 .add_pinger(ping::Pinger::new(monitor, interval, || {}))
                 .await;

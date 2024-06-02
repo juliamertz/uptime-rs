@@ -38,6 +38,7 @@ async fn rocket() -> _ {
                 routes::update_monitor,
                 routes::monitor_status_badge,
                 routes::create_monitor_view,
+                routes::delete_monitor
             ],
         )
         .mount(

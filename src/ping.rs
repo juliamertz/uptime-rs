@@ -1,11 +1,10 @@
 use crate::{database, utils, DatabaseModel};
+use rocket::{futures::lock::Mutex, http::Status};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::time::{Duration, Instant};
 use std::{sync::Arc, thread, time};
-// use tokio::sync::Mutex;
-use rocket::{futures::lock::Mutex, http::Status};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Protocol {
@@ -85,7 +84,12 @@ impl Pinger {
                     bad: false,
                 };
 
-                ping.create(&pool).await.expect("Failed to create ping");
+                match ping.create(&pool).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        warn!("Failed to create ping: {}", e);
+                    }
+                }
 
                 println!("{} is alive", self.monitor.address());
             } else {
@@ -126,6 +130,27 @@ impl PingerManager {
 
     pub async fn add_pinger(&self, pinger: Pinger) {
         self.pingers.lock().await.insert(pinger.monitor.id, pinger);
+    }
+
+    pub async fn remove_pinger(&self, id: i64) {
+        self.pingers.lock().await.remove(&id);
+    }
+
+    pub async fn update_pinger(&self, monitor: database::Monitor) -> std::io::Result<()> {
+        let mut gaurd = self.pingers.lock().await;
+        let pinger_entry = gaurd.get_mut(&monitor.id);
+
+        match pinger_entry {
+            Some(data) => {
+                data.enabled = !&monitor.paused;
+                data.monitor = monitor;
+                Ok(())
+            }
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Pinger not found",
+            )),
+        }
     }
 
     pub async fn start(&mut self) {

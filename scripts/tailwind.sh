@@ -9,6 +9,6 @@ $tailwind --postcss                   \
           --minify                    \
           --input ./static/styles.css \
           --output $output_file       \
-          $@ &
+          $@
           
           # &> /dev/null

@@ -1,7 +1,10 @@
-use crate::{ping, utils};
+use crate::{
+    ping::{self, PingerManager},
+    utils,
+};
 use async_trait::async_trait;
 use dotenv::dotenv;
-use rocket::http::Status;
+use rocket::{http::Status, State};
 use serde::{Deserialize, Serialize};
 use sqlx::{migrate::MigrateDatabase, Pool, Sqlite, SqlitePool};
 
@@ -59,6 +62,23 @@ impl Monitor {
         }
     }
 
+    pub async fn update(&self, pool: &Pool<Sqlite>) -> Result<&Self, sqlx::Error> {
+        sqlx::query!(
+            r#"
+            UPDATE monitor SET name = ?, ip = ?, port = ?, interval = ? WHERE id = ?
+            "#,
+            self.name,
+            self.ip,
+            self.port,
+            self.interval,
+            self.id
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(self)
+    }
+
     // pub async fn is_up(self, db: &Pool<Sqlite>) -> bool {
     //     MonitorPing::last_n(db, self.id, 1)
     //         .await
@@ -67,7 +87,11 @@ impl Monitor {
     //         .unwrap_or(false)
     // }
 
-    pub async fn toggle_paused(id: i64, pool: &Pool<Sqlite>) -> Result<bool, sqlx::Error> {
+    pub async fn toggle_paused(
+        id: i64,
+        pool: &Pool<Sqlite>,
+        pinger_manager: &State<PingerManager>,
+    ) -> Result<bool, sqlx::Error> {
         let monitor = Monitor::by_id(id, pool).await.unwrap();
         let paused = !monitor.paused;
         let query_result = sqlx::query!(
@@ -81,7 +105,16 @@ impl Monitor {
         .await;
 
         match query_result {
-            Ok(_) => Ok(paused),
+            Ok(_) => {
+                let mut pingers = pinger_manager.pingers.lock().await;
+                match pingers.get_mut(&id) {
+                    Some(pinger) => {
+                        pinger.enabled = !paused;
+                        Ok(paused)
+                    }
+                    None => Err(sqlx::Error::RowNotFound),
+                }
+            }
             Err(e) => Err(e),
         }
     }
@@ -171,6 +204,28 @@ impl DatabaseModel for Monitor {
                 .collect(),
             Err(_) => Vec::new(),
         }
+    }
+
+    async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"
+            DELETE FROM monitor_ping WHERE monitor_id = ?
+            "#,
+            id
+        )
+        .execute(pool)
+        .await?;
+
+        sqlx::query!(
+            r#"
+            DELETE FROM monitor WHERE id = ?
+            "#,
+            id
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -335,6 +390,19 @@ impl DatabaseModel for MonitorPing {
             Vec::new()
         }
     }
+
+    async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"
+            DELETE FROM monitor_ping WHERE id = ?
+            "#,
+            id
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -420,6 +488,19 @@ impl DatabaseModel for MonitorStats {
             Vec::new()
         }
     }
+
+    async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"
+            DELETE FROM monitor_stats WHERE id = ?
+            "#,
+            id
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -432,6 +513,9 @@ pub trait DatabaseModel {
     where
         Self: Sized;
     async fn all(pool: &Pool<Sqlite>) -> Vec<Self>
+    where
+        Self: Sized;
+    async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error>
     where
         Self: Sized;
 }
