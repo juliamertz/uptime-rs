@@ -7,3 +7,4 @@ package-lock.json
 static/_dist.css
 bun.lockb
 Cargo.lock
+static/chart.js
