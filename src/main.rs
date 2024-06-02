@@ -6,6 +6,7 @@ mod utils;
 
 use database::DatabaseModel;
 use rocket::fs::FileServer;
+use rocket_async_compression::CachedCompression;
 
 #[macro_use]
 extern crate rocket;
@@ -19,8 +20,8 @@ async fn rocket() -> _ {
         let pinger = ping::Pinger::new(monitor, 3, || {});
         monitor_pool.add_pinger(pinger).await;
     }
-
     monitor_pool.start().await;
+    let cached_compression_suffixes = vec![".js", ".css"];
 
     rocket::build()
         .mount(
@@ -54,6 +55,10 @@ async fn rocket() -> _ {
             routes![routes::all_monitors],
         )
         .mount("/public", FileServer::from("./static"))
+        .attach(CachedCompression::path_suffix_fairing(vec![
+            ".js".to_string(),
+            ".css".to_string(),
+        ]))
         .manage(monitor_pool)
         .manage(db_pool)
 }
