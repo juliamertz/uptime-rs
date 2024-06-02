@@ -46,16 +46,6 @@ pub struct Monitor {
     pub paused: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct MonitorPing {
-    pub id: i64,
-    pub monitor_id: i64,
-    pub timestamp: String,
-    pub status: Status,
-    pub duration_ms: i64,
-    pub bad: bool,
-}
-
 impl Monitor {
     pub fn hostname(&self) -> String {
         match self.port {
@@ -70,13 +60,13 @@ impl Monitor {
         }
     }
 
-    pub async fn is_up(self, db: &Pool<Sqlite>) -> bool {
-        MonitorPing::last_n(db, self.id, 1)
-            .await
-            .first()
-            .map(|ping| ping.bad)
-            .unwrap_or(false)
-    }
+    // pub async fn is_up(self, db: &Pool<Sqlite>) -> bool {
+    //     MonitorPing::last_n(db, self.id, 1)
+    //         .await
+    //         .first()
+    //         .map(|ping| ping.bad)
+    //         .unwrap_or(false)
+    // }
 
     pub async fn toggle_paused(id: i64, pool: &Pool<Sqlite>) -> Result<bool, sqlx::Error> {
         let monitor = Monitor::by_id(id, pool).await.unwrap();
@@ -183,6 +173,16 @@ impl DatabaseModel for Monitor {
             Err(_) => Vec::new(),
         }
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct MonitorPing {
+    pub id: i64,
+    pub monitor_id: i64,
+    pub timestamp: String,
+    pub status: Status,
+    pub duration_ms: i64,
+    pub bad: bool,
 }
 
 impl MonitorPing {
@@ -330,6 +330,91 @@ impl DatabaseModel for MonitorPing {
                     monitor_id: monitor_ping.monitor_id,
                     duration_ms: monitor_ping.duration_ms,
                     bad: monitor_ping.bad.to_bool(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct MonitorStats {
+    id: i64,
+    average_response_ms: i64,
+    uptime_percentage_24h: i64,
+    uptime_percentage_30d: i64,
+}
+
+#[async_trait]
+impl DatabaseModel for MonitorStats {
+    async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+        let schema = utils::parse_sql_file("schemas/monitor_stats.sql").await?;
+        sqlx::query(&schema).execute(pool).await?;
+
+        Ok(())
+    }
+
+    async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let query_result = sqlx::query!(
+            r#"
+            INSERT INTO monitor_stats (average_response_ms, uptime_percentage_24h, uptime_percentage_30d) VALUES (?, ?, ?)
+            "#,
+            self.average_response_ms,
+            self.uptime_percentage_24h,
+            self.uptime_percentage_30d
+        )
+        .execute(pool)
+        .await;
+
+        match query_result {
+            Ok(result) => Ok(MonitorStats {
+                id: result.last_insert_rowid(),
+                average_response_ms: self.average_response_ms,
+                uptime_percentage_24h: self.uptime_percentage_24h,
+                uptime_percentage_30d: self.uptime_percentage_30d,
+            }),
+            Err(err) => Err(err),
+        }
+    }
+
+    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self> {
+        if let Ok(monitor_stats) = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_stats WHERE id = ?
+            "#,
+            id
+        )
+        .fetch_one(pool)
+        .await
+        {
+            Some(MonitorStats {
+                id: monitor_stats.id,
+                average_response_ms: monitor_stats.average_response_ms,
+                uptime_percentage_24h: monitor_stats.uptime_percentage_24h,
+                uptime_percentage_30d: monitor_stats.uptime_percentage_30d,
+            })
+        } else {
+            None
+        }
+    }
+
+    async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
+        if let Ok(monitor_stats) = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_stats
+            "#
+        )
+        .fetch_all(pool)
+        .await
+        {
+            monitor_stats
+                .iter()
+                .map(|monitor_stats| MonitorStats {
+                    id: monitor_stats.id,
+                    average_response_ms: monitor_stats.average_response_ms,
+                    uptime_percentage_24h: monitor_stats.uptime_percentage_24h,
+                    uptime_percentage_30d: monitor_stats.uptime_percentage_30d,
                 })
                 .collect()
         } else {
