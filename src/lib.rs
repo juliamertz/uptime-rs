@@ -9,14 +9,50 @@ use std::io::Cursor;
 
 mod utils;
 
+#[derive(Debug, Deserialize, FromForm, Serialize)]
+pub struct CreateMonitor {
+    pub name: String,
+    pub ip: String,
+    pub port: Option<i64>,
+    pub interval: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreateMonitorPing {
+    pub monitor_id: i64,
+    pub timestamp: String,
+    pub status: String,
+}
+
 pub struct RedirectResponder {
     pub content: String,
     pub redirect_uri: Option<Origin<'static>>,
 }
 
+pub type RedirectResponse = Result<RedirectResponder, AppError>;
+
+pub type TemplateResult<'a> = Result<utils::TemplateResponse<'a>, AppError>;
+
 pub struct AppError {
     pub status: Status,
     pub message: String,
+}
+
+impl From<askama_rocket::Error> for AppError {
+    fn from(cause: askama_rocket::Error) -> Self {
+        AppError {
+            status: Status::InternalServerError,
+            message: format!("Error rendering template: {}", cause),
+        }
+    }
+}
+impl From<std::io::Error> for AppError {
+    fn from(cause: std::io::Error) -> Self {
+        AppError {
+            status: Status::InternalServerError,
+            message: format!("IO Error: {}", cause),
+        }
+    }
 }
 
 impl From<sqlx::Error> for AppError {
@@ -63,19 +99,4 @@ impl<'r> rocket::response::Responder<'r, 'static> for RedirectResponder {
             .sized_body(self.content.len(), Cursor::new(self.content))
             .ok()
     }
-}
-
-#[derive(Debug, Deserialize, FromForm, Serialize)]
-pub struct CreateMonitor {
-    pub name: String,
-    pub ip: String,
-    pub port: Option<i64>,
-    pub interval: i64,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CreateMonitorPing {
-    pub monitor_id: i64,
-    pub timestamp: String,
-    pub status: String,
 }

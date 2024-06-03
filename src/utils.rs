@@ -1,6 +1,9 @@
+#![allow(dead_code)]
+
+use askama::Template;
 use rand::Rng;
 use rocket::http::Status;
-use rocket::response::{self, content, status, Response};
+use rocket::response::{content, status};
 use std::borrow::Cow;
 
 pub type JsonResponse<'a> = status::Custom<content::RawJson<String>>;
@@ -25,9 +28,9 @@ pub type TemplateResponse<'a> = status::Custom<content::RawHtml<String>>;
 
 pub fn template_response<'a>(
     status: Status,
-    content: Result<String, askama_rocket::Error>,
+    template: impl Template,
 ) -> status::Custom<content::RawHtml<String>> {
-    match content {
+    match template.render() {
         Ok(content) => status::Custom(status, content::RawHtml(content)),
         Err(_) => {
             let content = format!("<h1>{}</h1>", status.reason().unwrap_or_else(|| "Unknown"));

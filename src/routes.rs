@@ -11,8 +11,8 @@ use rocket::{
     State,
 };
 use sqlx::{Pool, Sqlite};
-use uptime_rs::{AppError, CreateMonitor, RedirectResponder};
-use utils::{json_response, serde_response, JsonResponse};
+use uptime_rs::{CreateMonitor, RedirectResponder, RedirectResponse, TemplateResult};
+use utils::{serde_response, JsonResponse};
 
 //
 // monitor_list.html
@@ -42,45 +42,45 @@ pub async fn get_monitor_list_items(
 }
 
 #[get("/")]
-pub async fn monitor_list<'a>(pool: &State<Pool<Sqlite>>) -> TemplateResponse<'a> {
+pub async fn monitor_list<'a>(pool: &State<Pool<Sqlite>>) -> TemplateResult {
     let view = MonitorListComponentTemplate {
-        items: get_monitor_list_items(pool).await.unwrap(),
+        items: get_monitor_list_items(pool).await?,
     };
 
-    template_response(Status::Ok, view.render())
+    Ok(template_response(Status::Ok, view))
 }
 
 //
 // uptime_graph.html
 //
 #[get("/<id>/uptime-graph")]
-pub async fn uptime_graph<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResponse<'a> {
+pub async fn uptime_graph<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
     let uptime_data = database::MonitorPing::last_n(pool, id, 30).await;
 
     let view = UptimeGraphTemplate {
         uptime_graph: Some(uptime_data),
-        monitor: database::Monitor::by_id(id, pool).await.unwrap(),
+        monitor: database::Monitor::by_id(id, pool).await?,
     };
 
-    template_response(Status::Ok, view.render())
+    Ok(template_response(Status::Ok, view))
 }
 
 //
 // index.html
 //
 #[get("/")]
-pub async fn index<'a>(pool: &State<Pool<Sqlite>>) -> Result<TemplateResponse<'a>, AppError> {
+pub async fn index<'a>(pool: &State<Pool<Sqlite>>) -> TemplateResult {
     let monitors = database::Monitor::all(&pool).await?;
 
-    let hello = IndexTemplate {
+    let view = IndexTemplate {
         title: "world",
         monitors,
         monitor_list_view: MonitorListComponentTemplate {
-            items: get_monitor_list_items(pool).await.unwrap(),
+            items: get_monitor_list_items(pool).await?,
         },
     };
 
-    Ok(template_response(Status::Ok, hello.render()))
+    Ok(template_response(Status::Ok, view))
 }
 
 //
@@ -88,17 +88,17 @@ pub async fn index<'a>(pool: &State<Pool<Sqlite>>) -> Result<TemplateResponse<'a
 //
 #[get("/create")]
 pub async fn create_monitor_view<'a>() -> TemplateResponse<'a> {
-    let hello = CreateMonitorViewTemplate { title: "world" };
+    let view = CreateMonitorViewTemplate { title: "world" };
 
-    template_response(Status::Ok, hello.render())
+    template_response(Status::Ok, view)
 }
 
 //
 // monitor_status_badge.html
 //
 #[get("/<id>/status-badge")]
-pub async fn monitor_status_badge<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResponse<'a> {
-    let monitor = database::Monitor::by_id(id, pool).await.unwrap();
+pub async fn monitor_status_badge<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
+    let monitor = database::Monitor::by_id(id, pool).await?;
     let pings = database::MonitorPing::last_n(pool, id, 1).await;
     let up = match pings.first() {
         Some(ping) => !ping.bad && ping.status.code <= 400,
@@ -111,23 +111,21 @@ pub async fn monitor_status_badge<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> Te
         up,
         uptime_percentage,
     };
-    template_response(Status::Ok, view.render())
+
+    Ok(template_response(Status::Ok, view))
 }
 
 //
 // monitor.html
 //
 #[get("/<id>")]
-pub async fn monitor_view<'a>(
-    pool: &State<Pool<Sqlite>>,
-    id: i64,
-) -> Result<TemplateResponse<'a>, AppError> {
+pub async fn monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
     let monitor = database::Monitor::by_id(id, &pool).await?;
     let uptime_data = database::MonitorPing::last_n(pool, id, 30).await;
 
     let uptime_graph = UptimeGraphTemplate {
         uptime_graph: Some(uptime_data),
-        monitor: database::Monitor::by_id(id, pool).await.unwrap(),
+        monitor: database::Monitor::by_id(id, pool).await?,
     };
 
     let view = MonitorViewTemplate {
@@ -139,7 +137,7 @@ pub async fn monitor_view<'a>(
         uptime_graph,
     };
 
-    Ok(template_response(Status::Ok, view.render()))
+    Ok(template_response(Status::Ok, view))
 }
 
 //
@@ -180,32 +178,32 @@ pub async fn pause_monitor(
     }
 }
 
-#[get("/<monitor_id>/ping/last/<n>")]
+#[get("/<monitor_id>/ping/last/<amount>")]
 pub async fn last_pings<'a>(
     pool: &State<Pool<Sqlite>>,
     monitor_id: i64,
-    n: i64,
+    amount: i64,
 ) -> JsonResponse<'a> {
-    let pings = database::MonitorPing::last_n(&pool, monitor_id, n).await;
+    let pings = database::MonitorPing::last_n(&pool, monitor_id, amount).await;
 
     serde_response(Status::Ok, serde_json::to_string(&pings))
 }
 
 #[get("/<id>/edit")]
-pub async fn edit_monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResponse<'a> {
-    let monitor = database::Monitor::by_id(id, &pool).await.unwrap();
+pub async fn edit_monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
+    let monitor = database::Monitor::by_id(id, &pool).await?;
     let view = EditMonitorView { monitor };
 
-    template_response(Status::Ok, view.render())
+    Ok(template_response(Status::Ok, view))
 }
 
 #[put("/<id>", data = "<form>")]
 pub async fn update_monitor<'a>(
-    pool: &State<Pool<Sqlite>>,
     id: i64,
-    form: Form<Contextual<'a, CreateMonitor>>,
+    pool: &State<Pool<Sqlite>>,
     pinger_manager: &State<PingerManager>,
-) -> RedirectResponder {
+    form: Form<Contextual<'a, CreateMonitor>>,
+) -> RedirectResponse {
     match form.value {
         Some(ref data) => {
             let monitor = database::Monitor {
@@ -218,36 +216,22 @@ pub async fn update_monitor<'a>(
                 paused: database::Monitor::is_paused(id, &pool).await,
             };
 
-            let response = match monitor.update(&pool).await {
-                Ok(result) => match pinger_manager.update_pinger(result.clone()).await {
-                    Ok(_) => {
-                        let templ = EditMonitorView {
-                            monitor: result.clone(),
-                        };
+            let db_result = monitor.update(&pool).await?;
+            pinger_manager.update_pinger(db_result.clone()).await?;
 
-                        RedirectResponder {
-                            content: templ.render().unwrap(),
-                            redirect_uri: Some(uri!("/monitor", monitor_view(id))),
-                        }
-                    }
-                    Err(_) => RedirectResponder {
-                        content: "Failed to update pinger, changes will be applied after restart"
-                            .into(),
-                        redirect_uri: None,
-                    },
-                },
-                Err(msg) => RedirectResponder {
-                    content: msg.to_string(),
-                    redirect_uri: None,
-                },
+            let view = EditMonitorView {
+                monitor: db_result.clone(),
             };
 
-            response
+            Ok(RedirectResponder {
+                content: view.render()?,
+                redirect_uri: Some(uri!("/monitor", monitor_view(id))),
+            })
         }
-        None => RedirectResponder {
+        None => Ok(RedirectResponder {
             content: "no".into(),
             redirect_uri: None,
-        },
+        }),
     }
 }
 
@@ -256,20 +240,14 @@ pub async fn delete_monitor<'a>(
     pool: &State<Pool<Sqlite>>,
     pinger_manager: &State<PingerManager>,
     id: i64,
-) -> RedirectResponder {
-    match database::Monitor::delete(id, pool).await {
-        Ok(_monitor) => {
-            pinger_manager.remove_pinger(id).await;
-            RedirectResponder {
-                content: "ok".into(),
-                redirect_uri: Some(uri!("/")),
-            }
-        }
-        Err(err) => RedirectResponder {
-            content: err.to_string(),
-            redirect_uri: None,
-        },
-    }
+) -> RedirectResponse {
+    database::Monitor::delete(id, pool).await?;
+    pinger_manager.remove_pinger(id).await;
+
+    Ok(RedirectResponder {
+        content: "ok".into(),
+        redirect_uri: Some(uri!("/")),
+    })
 }
 
 #[post("/", data = "<form>")]
@@ -320,32 +298,3 @@ pub async fn create_monitor<'a>(
         }
     }
 }
-
-// #[post("/", data = "<data>")]
-// pub async fn create_monitor<'a>(
-//     data: Json<uptime_rs::CreateMonitor>,
-//     pool: &State<Pool<Sqlite>>,
-//     manager: &State<PingerManager>,
-// ) -> JsonResponse<'a> {
-//     let monitor = database::Monitor {
-//         interval: data.interval,
-//         protocol: ping::Protocol::HTTP,
-//         id: utils::gen_id(),
-//         name: data.name.clone(),
-//         ip: data.ip.clone(),
-//         port: data.port,
-//         paused: false,
-//     };
-//
-//     let response = match monitor.create(&pool).await {
-//         Ok(result) => serde_response(Status::Created, serde_json::to_string(&result)),
-//         Err(_) => json_response(Status::InternalServerError, None),
-//     };
-//
-//     let interval = monitor.interval.clone();
-//     manager
-//         .add_pinger(ping::Pinger::new(monitor, interval, || {}))
-//         .await;
-//
-//     response
-// }
