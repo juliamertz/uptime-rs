@@ -20,9 +20,8 @@ async fn rocket() -> _ {
         let pinger = ping::Pinger::new(monitor, 3, || {});
         monitor_pool.add_pinger(pinger).await;
     }
-    monitor_pool.start().await;
-    let cached_compression_suffixes = vec![".js", ".css"];
 
+    monitor_pool.start().await;
     rocket::build()
         .mount(
             "/", //
@@ -56,8 +55,8 @@ async fn rocket() -> _ {
         )
         .mount("/public", FileServer::from("./static"))
         .attach(CachedCompression::path_suffix_fairing(vec![
-            ".js".to_string(),
-            ".css".to_string(),
+            ".js".into(),
+            ".css".into(),
         ]))
         .manage(monitor_pool)
         .manage(db_pool)

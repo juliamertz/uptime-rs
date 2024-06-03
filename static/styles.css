@@ -12,12 +12,12 @@
   }
 
   .form-field {
-    @apply flex flex-col gap-2;
+    @apply flex flex-col mb-2 gap-1;
     label {
       @apply font-semibold text-sm;
     }
     input {
-      @apply text-text bg-surface border border-highlightMed py-1 px-2 accent-love rounded-md;
+      @apply text-text bg-base border border-highlightMed py-1 px-2 accent-love rounded-md;
       &::placeholder {
         @apply text-subtle;
       }

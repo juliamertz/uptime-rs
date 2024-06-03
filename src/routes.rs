@@ -80,7 +80,12 @@ pub async fn monitor_status_badge<'a>(
         None => false,
     };
 
-    let view = MonitorStatusBadgeTemplate { monitor, up };
+    let uptime_percentage = monitor.get_uptime_percentage(pool).await;
+    let view = MonitorStatusBadgeTemplate {
+        monitor,
+        up,
+        uptime_percentage,
+    };
     utils::template_response(Status::Ok, view.render())
 }
 

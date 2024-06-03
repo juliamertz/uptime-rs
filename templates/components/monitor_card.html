@@ -3,7 +3,7 @@
   class="bg-surface flex flex-row gap-2 shadow-md p-3 rounded-md"
 >
   <div class="w-full text-left">
-    <h2 class="text-2xl font-semibold">{{ monitor.name }}</h2>
+    <h2 class="text-xl lg:text-2xl font-semibold">{{ monitor.name }}</h2>
     <span
       class="text-love hover:underline"
       hx-on:click="window.location = '{{ monitor.address() }}'"
@@ -12,6 +12,7 @@
     </span>
   </div>
   {% let up = true %}
+  {% let uptime_percentage = 100 %}
   <div
     hx-get="/monitor/{{ monitor.id }}/status-badge"
     hx-trigger="every {{ monitor.interval }}s, load"

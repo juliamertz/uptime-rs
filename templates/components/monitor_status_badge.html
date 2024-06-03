@@ -1,9 +1,9 @@
 {% if up %}
-  <div class="bg-green-500 rounded-full p-1">
-    <p class="font-semibold text-md mt-[-7px]">Up</p>
+  <div class="bg-pine rounded-full p-1">
+    <p class="font-semibold text-sm">{{ uptime_percentage }}%</p>
   </div>
 {% else %}
-  <div class="bg-red-400 rounded-full p-1">
-    <p class="font-semibold text-md mt-[-7px]">Down</p>
+  <div class="bg-love rounded-full p-1">
+    <p class="font-semibold text-sm">{{ uptime_percentage }}%</p>
   </div>
 {% endif %}

@@ -1,7 +1,9 @@
 {% extends "layout.html" %}
 
 {% block content %}
-  <div class="gap-6 grid sm:grid-cols-[320px,auto]">
+  <div
+    class="gap-3 grid sm:grid-cols-[240px,auto] transition-all lg:grid-cols-[320px,auto]"
+  >
     <nav class="flex-col gap-3 hidden sm:flex">
       <a href="/monitor/create" class="button self-start">Create new monitor</a>
       <section

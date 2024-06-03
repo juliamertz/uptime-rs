@@ -49,6 +49,18 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    pub async fn get_uptime_percentage(&self, pool: &Pool<Sqlite>) -> i64 {
+        let pings = MonitorPing::last_n(pool, self.id, 30).await;
+        let total_pings = pings.len() as i64;
+        let bad_pings = pings.iter().filter(|ping| ping.bad).count() as i64;
+
+        if total_pings == 0 {
+            return 100;
+        }
+
+        ((total_pings - bad_pings) * 100) / total_pings
+    }
+
     pub fn hostname(&self) -> String {
         match self.port {
             Some(port) => format!("{}:{}", self.ip, port),

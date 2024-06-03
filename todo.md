@@ -8,5 +8,5 @@
   - [x] Remove monitor
   - [x] Edit monitor
   - [x] Add monitor
-    - [~] fix random id gets generated when creating a monitor in memory, when creating it in the database it's id will be overwritten.
+    - [x] fix random id gets generated when creating a monitor in memory, when creating it in the database it's id will be overwritten.
 - [x] Fix monitor list navigation with hx-boost

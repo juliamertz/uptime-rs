@@ -41,6 +41,7 @@ pub struct UptimeGraphTemplate {
 #[derive(Template)]
 #[template(path = "components/monitor_status_badge.html")]
 pub struct MonitorStatusBadgeTemplate {
+    pub uptime_percentage: i64,
     pub monitor: Monitor,
     pub up: bool,
 }

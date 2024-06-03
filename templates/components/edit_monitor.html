@@ -1,4 +1,7 @@
-<form hx-put="/monitor/{{ monitor.id }}">
+<form
+  class=" bg-surface shadow-md p-3 mt-3 rounded-md"
+  hx-put="/monitor/{{ monitor.id }}"
+>
   <div class="form-field">
     <label for="name">Name</label>
     <input type="text" id="name" name="name" value="{{ monitor.name }}" />
@@ -27,7 +30,7 @@
       value="{{ monitor.interval }}"
     />
   </div>
-  <button class="button mt-3" type="submit">Save changes</button>
+  <button class="button mt-1" type="submit">Save changes</button>
   <button
     class="button bg-overlay mt-3"
     type="button"
