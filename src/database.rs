@@ -49,6 +49,13 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    pub fn get_average_ping_duration(pings: &Vec<crate::database::MonitorPing>) -> i64 {
+        if pings.len() == 0 {
+            return 0;
+        }
+        pings.iter().fold(0, |acc, ping| acc + ping.duration_ms) / pings.len() as i64
+    }
+
     pub async fn get_uptime_percentage(&self, pool: &Pool<Sqlite>) -> i64 {
         let pings = MonitorPing::last_n(pool, self.id, 30).await;
         let total_pings = pings.len() as i64;
@@ -59,6 +66,22 @@ impl Monitor {
         }
 
         ((total_pings - bad_pings) * 100) / total_pings
+    }
+
+    pub async fn is_paused(id: i64, pool: &Pool<Sqlite>) -> bool {
+        let query_result = sqlx::query!(
+            r#"
+            SELECT paused FROM monitor WHERE id = ? LIMIT 1
+            "#,
+            id
+        )
+        .fetch_one(pool)
+        .await;
+
+        match query_result {
+            Ok(monitor) => monitor.paused.to_bool(),
+            Err(_) => false,
+        }
     }
 
     pub fn hostname(&self) -> String {
@@ -106,7 +129,7 @@ impl Monitor {
     ) -> Result<bool, sqlx::Error> {
         let monitor = Monitor::by_id(id, pool).await.unwrap();
         let paused = !monitor.paused;
-        let query_result = sqlx::query!(
+        sqlx::query!(
             r#"
             UPDATE monitor SET paused = ? WHERE id = ?
             "#,
@@ -114,20 +137,15 @@ impl Monitor {
             id
         )
         .execute(pool)
-        .await;
+        .await?;
 
-        match query_result {
-            Ok(_) => {
-                let mut pingers = pinger_manager.pingers.lock().await;
-                match pingers.get_mut(&id) {
-                    Some(pinger) => {
-                        pinger.enabled = !paused;
-                        Ok(paused)
-                    }
-                    None => Err(sqlx::Error::RowNotFound),
-                }
+        let mut pingers = pinger_manager.pingers.lock().await;
+        match pingers.get_mut(&id) {
+            Some(pinger) => {
+                pinger.enabled = !paused;
+                Ok(paused)
             }
-            Err(e) => Err(e),
+            None => Err(sqlx::Error::RowNotFound),
         }
     }
 }
@@ -152,70 +170,61 @@ impl DatabaseModel for Monitor {
             self.interval,
         )
         .execute(pool)
-        .await;
+        .await?;
 
-        match query_result {
-            Ok(result) => Ok(Monitor {
-                protocol: ping::Protocol::HTTP,
-                id: result.last_insert_rowid(),
-                name: self.name.clone(),
-                ip: self.ip.clone(),
-                port: self.port,
-                interval: self.interval,
-                paused: self.paused,
-            }),
-            Err(e) => Err(e),
-        }
+        Ok(Monitor {
+            protocol: ping::Protocol::HTTP,
+            id: query_result.last_insert_rowid(),
+            name: self.name.clone(),
+            ip: self.ip.clone(),
+            port: self.port,
+            interval: self.interval,
+            paused: self.paused,
+        })
     }
 
-    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self> {
-        let query_result = sqlx::query!(
+    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let monitor = sqlx::query!(
             r#"
             SELECT * FROM monitor WHERE id = ?
             "#,
             id
         )
         .fetch_one(pool)
-        .await;
+        .await?;
 
-        match query_result {
-            Ok(monitor) => Some(Monitor {
-                protocol: ping::Protocol::HTTP,
-                id: monitor.id,
-                name: monitor.name,
-                ip: monitor.ip,
-                port: monitor.port,
-                interval: monitor.interval,
-                paused: monitor.paused.to_bool(),
-            }),
-            Err(_) => None,
-        }
+        Ok(Monitor {
+            protocol: ping::Protocol::HTTP,
+            id: monitor.id,
+            name: monitor.name,
+            ip: monitor.ip,
+            port: monitor.port,
+            interval: monitor.interval,
+            paused: monitor.paused.to_bool(),
+        })
     }
 
-    async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
+    async fn all(pool: &Pool<Sqlite>) -> Result<Vec<Self>, sqlx::Error> {
         let query_result = sqlx::query!(
             r#"
             SELECT * FROM monitor
             "#
         )
         .fetch_all(pool)
-        .await;
+        .await?;
 
-        match query_result {
-            Ok(monitors) => monitors
-                .iter()
-                .map(|monitor| Monitor {
-                    protocol: ping::Protocol::HTTP,
-                    id: monitor.id,
-                    name: monitor.name.clone(),
-                    ip: monitor.ip.clone(),
-                    port: monitor.port,
-                    interval: monitor.interval,
-                    paused: monitor.paused.to_bool(),
-                })
-                .collect(),
-            Err(_) => Vec::new(),
-        }
+        Ok(query_result
+            .iter()
+            .map(|monitor| Monitor {
+                protocol: ping::Protocol::HTTP,
+                id: monitor.id,
+                name: monitor.name.clone(),
+                ip: monitor.ip.clone(),
+                port: monitor.port,
+                interval: monitor.interval,
+                paused: monitor.paused.to_bool(),
+            })
+            .collect())
     }
 
     async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
@@ -274,6 +283,7 @@ impl MonitorPing {
     //         Err(_) => None,
     //     }
     // }
+    // pub async fn between_dates(pool: &Pool<Sqlite>, dates: (String,String))
 
     pub async fn last_n(pool: &Pool<Sqlite>, monitor_id: i64, n: i64) -> Vec<Self> {
         if let Ok(monitor_pings) = sqlx::query!(
@@ -354,53 +364,46 @@ impl DatabaseModel for MonitorPing {
         }
     }
 
-    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self> {
-        if let Ok(monitor_ping) = sqlx::query!(
+    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let query_result = sqlx::query!(
             r#"
             SELECT * FROM monitor_ping WHERE id = ?
             "#,
             id
         )
         .fetch_one(pool)
-        .await
-        {
-            Some(MonitorPing {
+        .await?;
+
+        Ok(MonitorPing {
+            id: query_result.id,
+            status: Status::from_code(query_result.status as u16).expect("Invalid status code"),
+            timestamp: query_result.timestamp,
+            monitor_id: query_result.monitor_id,
+            duration_ms: query_result.duration_ms,
+            bad: query_result.bad.to_bool(),
+        })
+    }
+
+    async fn all(pool: &Pool<Sqlite>) -> Result<Vec<Self>, sqlx::Error> {
+        let query_result = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_ping
+            "#
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(query_result
+            .iter()
+            .map(|monitor_ping| MonitorPing {
                 id: monitor_ping.id,
                 status: Status::from_code(monitor_ping.status as u16).expect("Invalid status code"),
-                timestamp: monitor_ping.timestamp,
+                timestamp: monitor_ping.timestamp.clone(),
                 monitor_id: monitor_ping.monitor_id,
                 duration_ms: monitor_ping.duration_ms,
                 bad: monitor_ping.bad.to_bool(),
             })
-        } else {
-            None
-        }
-    }
-
-    async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
-        if let Ok(monitor_pings) = sqlx::query!(
-            r#"
-            SELECT * FROM monitor_ping ORDER BY timestamp DESC;
-            "#
-        )
-        .fetch_all(pool)
-        .await
-        {
-            monitor_pings
-                .iter()
-                .map(|monitor_ping| MonitorPing {
-                    id: monitor_ping.id,
-                    status: Status::from_code(monitor_ping.status as u16)
-                        .expect("Invalid status code"),
-                    timestamp: monitor_ping.timestamp.clone(),
-                    monitor_id: monitor_ping.monitor_id,
-                    duration_ms: monitor_ping.duration_ms,
-                    bad: monitor_ping.bad.to_bool(),
-                })
-                .collect()
-        } else {
-            Vec::new()
-        }
+            .collect())
     }
 
     async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
@@ -457,48 +460,42 @@ impl DatabaseModel for MonitorStats {
         }
     }
 
-    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self> {
-        if let Ok(monitor_stats) = sqlx::query!(
+    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error> {
+        let query_result = sqlx::query!(
             r#"
             SELECT * FROM monitor_stats WHERE id = ?
             "#,
             id
         )
         .fetch_one(pool)
-        .await
-        {
-            Some(MonitorStats {
-                id: monitor_stats.id,
-                average_response_ms: monitor_stats.average_response_ms,
-                uptime_percentage_24h: monitor_stats.uptime_percentage_24h,
-                uptime_percentage_30d: monitor_stats.uptime_percentage_30d,
-            })
-        } else {
-            None
-        }
+        .await?;
+
+        Ok(MonitorStats {
+            id: query_result.id,
+            average_response_ms: query_result.average_response_ms,
+            uptime_percentage_24h: query_result.uptime_percentage_24h,
+            uptime_percentage_30d: query_result.uptime_percentage_30d,
+        })
     }
 
-    async fn all(pool: &Pool<Sqlite>) -> Vec<Self> {
-        if let Ok(monitor_stats) = sqlx::query!(
+    async fn all(pool: &Pool<Sqlite>) -> Result<Vec<Self>, sqlx::Error> {
+        let query_result = sqlx::query!(
             r#"
             SELECT * FROM monitor_stats
             "#
         )
         .fetch_all(pool)
-        .await
-        {
-            monitor_stats
-                .iter()
-                .map(|monitor_stats| MonitorStats {
-                    id: monitor_stats.id,
-                    average_response_ms: monitor_stats.average_response_ms,
-                    uptime_percentage_24h: monitor_stats.uptime_percentage_24h,
-                    uptime_percentage_30d: monitor_stats.uptime_percentage_30d,
-                })
-                .collect()
-        } else {
-            Vec::new()
-        }
+        .await?;
+
+        Ok(query_result
+            .iter()
+            .map(|monitor_stats| MonitorStats {
+                id: monitor_stats.id,
+                average_response_ms: monitor_stats.average_response_ms,
+                uptime_percentage_24h: monitor_stats.uptime_percentage_24h,
+                uptime_percentage_30d: monitor_stats.uptime_percentage_30d,
+            })
+            .collect())
     }
 
     async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
@@ -521,10 +518,10 @@ pub trait DatabaseModel {
     async fn create(&self, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error>
     where
         Self: Sized;
-    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Option<Self>
+    async fn by_id(id: i64, pool: &Pool<Sqlite>) -> Result<Self, sqlx::Error>
     where
         Self: Sized;
-    async fn all(pool: &Pool<Sqlite>) -> Vec<Self>
+    async fn all(pool: &Pool<Sqlite>) -> Result<Vec<Self>, sqlx::Error>
     where
         Self: Sized;
     async fn delete(id: i64, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error>

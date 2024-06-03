@@ -3,7 +3,7 @@
   id="monitor_list"
   class="flex flex-col gap-3 w-full h-full"
 >
-  {% for monitor in monitors %}
-    {% include "components/monitor_card.html" %}
+  {%- for item in items.as_slice() -%}
+    {{ item|safe }}
   {% endfor %}
 </div>

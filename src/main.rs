@@ -1,4 +1,4 @@
-mod database;
+pub mod database;
 mod ping;
 mod routes;
 mod templates;
@@ -16,7 +16,7 @@ async fn rocket() -> _ {
     let db_pool = database::initialize().await;
     let mut monitor_pool = ping::PingerManager::new();
 
-    for monitor in database::Monitor::all(&db_pool).await {
+    for monitor in database::Monitor::all(&db_pool).await.unwrap() {
         let pinger = ping::Pinger::new(monitor, 3, || {});
         monitor_pool.add_pinger(pinger).await;
     }
@@ -47,12 +47,15 @@ async fn rocket() -> _ {
         )
         .mount(
             "/api/monitor",
-            routes![routes::get_monitor, routes::last_pings],
+            routes![
+                // routes::get_monitor, //
+                routes::last_pings
+            ],
         )
-        .mount(
-            "/api/monitors", //
-            routes![routes::all_monitors],
-        )
+        // .mount(
+        //     "/api/monitors", //
+        //     routes![routes::all_monitors],
+        // )
         .mount("/public", FileServer::from("./static"))
         .attach(CachedCompression::path_suffix_fairing(vec![
             ".js".into(),

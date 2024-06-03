@@ -31,7 +31,7 @@
       <div>
         <h4 class="font-semibold text-xl">Average response</h4>
         <p class="text-md">
-          {{ crate::utils::get_average_ping_duration(data) }}ms
+          {{ crate::database::Monitor::get_average_ping_duration(data) }}ms
         </p>
       </div>
       <div>
@@ -54,43 +54,33 @@
 
 <script>
   (() => {
-    const labels = [];
-    const data = [];
-    const bad = [];
-
     const uptime_graph = $("#uptime_graph");
     const children = Array.from(uptime_graph.children).reverse();
 
+    const data = {
+      labels: [],
+      values: [],
+    };
+
     for (const ping of children) {
-      const attrs = attributes(ping, [
-        "data-duration",
-        "data-timestamp",
-        "data-bad",
-      ]);
+      const attrs = dattributes(ping, ["duration", "timestamp"]);
 
-      if (!attrs.timestamp) labels.push("-");
-      else {
-        let time = new Date(attrs.timestamp).toLocaleTimeString();
-        labels.push(time);
-      }
-
-      bad.push(attrs.bad === "true");
-      data.push(attrs.duration);
+      data.values.push(attrs.duration);
+      data.labels.push(
+        attrs.timestamp ? new Date(attrs.timestamp).toLocaleTimeString() : "-",
+      );
     }
 
-    const canvas = $("#uptime_chart");
-
-    let i = 0;
-    new Chart(canvas, {
+    new Chart($("#uptime_chart"), {
       type: "line",
       responsive: true,
       aspectRatio: 16 / 9,
       data: {
-        labels,
+        labels: data.labels,
         datasets: [
           {
             label: "Response time (ms)",
-            data,
+            data: data.values,
             fill: false,
             borderColor: "#9ccfd8",
             tension: 0.1,

@@ -6,11 +6,7 @@
   >
     <nav class="flex-col gap-3 hidden sm:flex">
       <a href="/monitor/create" class="button self-start">Create new monitor</a>
-      <section
-        hx-get="/monitors"
-        hx-swap="innerHTML"
-        hx-trigger="load"
-      ></section>
+      {{ monitor_list_view|safe }}
     </nav>
     <div class="min-h-0 min-w-0 w-full">
       <section>
@@ -55,10 +51,13 @@
       <div id="selected_tab"></div>
 
       <section
-        hx-get="/monitor/{{ monitor.id }}/uptime-graph"
-        hx-swap="innerHTML"
-        hx-trigger="every {{ monitor.interval }}s, load"
-      ></section>
+        {% if !monitor.paused %}
+          hx-get="/monitor/{{ monitor.id }}/uptime-graph" hx-swap="innerHTML"
+          hx-trigger="every {{ monitor.interval }}s"
+        {% endif %}
+      >
+        {{ uptime_graph|safe }}
+      </section>
     </div>
   </div>
 {% endblock %}

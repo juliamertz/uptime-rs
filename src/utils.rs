@@ -1,6 +1,6 @@
 use rand::Rng;
 use rocket::http::Status;
-use rocket::response::{content, status};
+use rocket::response::{self, content, status, Response};
 use std::borrow::Cow;
 
 pub type JsonResponse<'a> = status::Custom<content::RawJson<String>>;
@@ -57,11 +57,4 @@ pub async fn parse_sql_file(file_path: &str) -> std::io::Result<String> {
         Cow::Owned(s) => Ok(s),
         Cow::Borrowed(s) => Ok(s.to_string()),
     }
-}
-
-pub fn get_average_ping_duration(pings: &Vec<crate::database::MonitorPing>) -> i64 {
-    if pings.len() == 0 {
-        return 0;
-    }
-    pings.iter().fold(0, |acc, ping| acc + ping.duration_ms) / pings.len() as i64
 }

@@ -11,11 +11,9 @@
       {{ monitor.hostname() }}
     </span>
   </div>
-  {% let up = true %}
-  {% let uptime_percentage = 100 %}
   <div
     hx-get="/monitor/{{ monitor.id }}/status-badge"
-    hx-trigger="every {{ monitor.interval }}s, load"
+    hx-trigger="every {{ monitor.interval }}s"
     hx-swap="innerHTML"
   >
     {% include "components/monitor_status_badge.html" %}

@@ -14,6 +14,8 @@ pub struct CreateMonitorViewTemplate<'a> {
 pub struct MonitorViewTemplate<'a> {
     pub title: &'a str,
     pub monitor: Monitor,
+    pub monitor_list_view: MonitorListComponentTemplate,
+    pub uptime_graph: UptimeGraphTemplate,
 }
 
 #[derive(Template)]
@@ -21,14 +23,23 @@ pub struct MonitorViewTemplate<'a> {
 pub struct IndexTemplate<'a> {
     pub title: &'a str,
     pub monitors: Vec<Monitor>,
+    pub monitor_list_view: MonitorListComponentTemplate,
 }
 
 // Components
 
 #[derive(Template)]
+#[template(path = "components/monitor_card.html")]
+pub struct MonitorListItem {
+    pub monitor: Monitor,
+    pub uptime_percentage: i64,
+    pub up: bool,
+}
+
+#[derive(Template)]
 #[template(path = "components/monitor_list.html")]
 pub struct MonitorListComponentTemplate {
-    pub monitors: Vec<Monitor>,
+    pub items: Vec<MonitorListItem>,
 }
 
 #[derive(Template)]

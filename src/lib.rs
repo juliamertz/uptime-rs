@@ -1,25 +1,53 @@
 use rocket::http::uri::Origin;
+use rocket::http::{ContentType, Header};
+use rocket::request::Request;
+use rocket::response::{self, Response};
 use rocket::{http::Status, FromForm};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::io::Cursor;
 
-use rocket::http::{ContentType, Header};
-
-#[derive(rocket::Responder)]
-#[response(status = 200, content_type = "json")]
-struct MyResponder {
-    inner: Status,
-    more: Header<'static>,
-}
+mod utils;
 
 pub struct RedirectResponder {
     pub content: String,
     pub redirect_uri: Option<Origin<'static>>,
 }
 
-use rocket::request::Request;
-use std::io::Cursor;
+pub struct AppError {
+    pub status: Status,
+    pub message: String,
+}
 
-use rocket::response::{self, Response};
+impl From<sqlx::Error> for AppError {
+    fn from(cause: sqlx::Error) -> Self {
+        AppError {
+            status: Status::InternalServerError,
+            message: format!("Database Error: {}", cause),
+        }
+    }
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "An Error Occurred, Please Try Again!") // user-facing output
+    }
+}
+
+impl fmt::Debug for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{{ file: {}, line: {} }}", file!(), line!()) // programmer-facing output
+    }
+}
+
+impl<'r> rocket::response::Responder<'r, 'static> for AppError {
+    fn respond_to(self, _: &'r Request<'_>) -> response::Result<'static> {
+        Response::build()
+            .header(ContentType::HTML)
+            .sized_body(self.message.len(), Cursor::new(self.message))
+            .ok()
+    }
+}
 
 #[rocket::async_trait]
 impl<'r> rocket::response::Responder<'r, 'static> for RedirectResponder {
@@ -34,14 +62,6 @@ impl<'r> rocket::response::Responder<'r, 'static> for RedirectResponder {
             .header(Header::new("HX-Redirect", redirect_uri))
             .sized_body(self.content.len(), Cursor::new(self.content))
             .ok()
-
-        // match self.redirect_uri {
-        //     Some(uri) => response.header(Header::new("HX-Redirect", uri.to_string())),
-        //     None => response.header(Header::new("HX-Redirect", "")),
-        // }
-        // .sized_body(self.content.len(), Cursor::new(self.content))
-        // .header(ContentType::HTML)
-        // .ok()
     }
 }
 
