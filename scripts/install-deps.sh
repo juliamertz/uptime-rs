@@ -15,10 +15,6 @@ else
   echo "prettier-plugin-jinja-template already installed"
 fi
 
-cd scripts/chart-js
-npm install && npm run bundle
-cd ../..  
-
 for file in schemas/*.sql; do
   echo "Running $file"
   # cat $file
