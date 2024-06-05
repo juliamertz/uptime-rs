@@ -10,7 +10,7 @@
 
 {% block content %}
   <button
-    hx-on:click="selector('#mobile_list_view').style.display = 'block'"
+    hx-on:click="MobileListView.open()"
     class="aspect-square sm:hidden w-8 h-8 top-3 right-3 md:right-6 lg:right-12 absolute"
   >
     {% include "icons/menu.svg" %}

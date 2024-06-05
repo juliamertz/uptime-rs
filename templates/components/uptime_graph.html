@@ -1,12 +1,13 @@
 {% if let Some(data) = uptime_graph %}
-<style>
-  {% for i in ( 0 .. data.len())  %}
-    {% if data[i].bad %}
-      .ct-point:nth-child({{ data.len() - i + 1 }}) { stroke: #eb6f92 }
-    {% endif %}
-  {% endfor %}
-</style>
+  <style>
+    {% for i in ( 0 .. data.len())  %}
+      {% if data[i].bad %}
+        .ct-point:nth-child({{ data.len() - i + 1 }}) { stroke: #eb6f92 }
+      {% endif %}
+    {% endfor %}
+  </style>
 {% endif %}
+
 <section class="@container">
   {% if let Some(data) = uptime_graph %}
     <section class="bg-surface rounded-md shadow-md mt-3">
@@ -64,37 +65,25 @@
   {% endif %}
 </section>
 
-<script defer>
-  (() => {
-   {% if let Some(data) = uptime_graph %}
-     const data = {{- serde_json::to_string(data).unwrap()|safe -}};
-   {% else %}
-   alert("WTK")
-   {% endif %}
+<script type="module" defer>
+  {% if let Some(data) = uptime_graph %}
+    const data = {{- serde_json::to_string(data).unwrap()|safe -}};
+  {% endif %}
 
-    const format_date = function (date) {
-      const iso = new Date(date).toISOString();
-      return iso.match(/\d\d:\d\d/)[0];
-    };
+  function labelMapFnc(ping, index) {
+    if (index % 2 !== 0) return "";
+    const iso = new Date(ping.timestamp).toISOString();
+    return iso.match(/\d\d:\d\d/)[0];
+  }
 
-    const create = function (data) {
-      new Chartist.Line(
-        "#uptime_chart",
-        {
-          labels: data.map((ping, i) =>
-            i % 2 !== 0 ? "" : format_date(ping.timestamp),
-          ),
-          series: [data.map((ping) => ping.duration_ms)],
-        },
-        {
-          lineSmooth: Chartist.Interpolation.none(),
-          axisY: {
-            labelInterpolationFnc: (value) => value + "ms",
-          },
-        },
-      );
-    };
-
-    create(data);
-  })();
+  new Chartist.Line("#uptime_chart",
+    {
+      labels: data.map(labelMapFnc),
+      series: [data.map((ping) => ping.duration_ms)],
+    },
+    {
+      lineSmooth: Chartist.Interpolation.none(),
+      axisY: { labelInterpolationFnc: (val) => val + "ms", },
+    },
+  );
 </script>

@@ -12,7 +12,7 @@ use rocket::{
     State,
 };
 use sqlx::{Pool, Sqlite};
-use uptime_rs::{CreateMonitor, RedirectResponder, RedirectResponse, TemplateResult};
+use uptime_rs::{CreateMonitor, RedirectResponder, RedirectResult, TemplateResult};
 use utils::{serde_response, JsonResponse};
 
 //
@@ -123,12 +123,12 @@ pub async fn monitor_status_badge<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> Te
 pub async fn monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
     let monitor = database::Monitor::by_id(id, &pool).await?;
     let uptime_data = database::MonitorPing::last_n(pool, id, 30).await;
-    let offset = DateOffset::new(chrono::Duration::days(2));
-    let test = database::MonitorPing::between(pool, id, offset).await?;
-    // dbg!(&test);
+    // let offset = DateOffset::new(chrono::Duration::days(2));
+    // dbg!(&offset.normalize().pretty_strings());
+    // let uptime_data = database::MonitorPing::between(pool, id, offset).await?;
 
     let uptime_graph = UptimeGraphTemplate {
-        uptime_graph: Some(test),
+        uptime_graph: Some(uptime_data),
         monitor: database::Monitor::by_id(id, pool).await?,
     };
 
@@ -149,16 +149,13 @@ pub async fn pause_monitor(
     pool: &State<Pool<Sqlite>>,
     id: i64,
     pinger_manager: &State<PingerManager>,
-) -> String {
-    let paused = database::Monitor::toggle_paused(id, &pool, pinger_manager).await;
-    match paused {
-        Ok(paused) => match paused {
-            true => "Resume".into(),
-            false => "Pause".into(),
-        },
+) -> RedirectResult {
+    database::Monitor::toggle_paused(id, &pool, pinger_manager).await?;
 
-        Err(_) => "Error".into(),
-    }
+    Ok(RedirectResponder {
+        content: "ok".into(),
+        redirect_uri: Some(uri!("/monitor", monitor_view(id))),
+    })
 }
 
 #[get("/<monitor_id>/ping/last/<amount>")]
@@ -186,7 +183,7 @@ pub async fn update_monitor<'a>(
     pool: &State<Pool<Sqlite>>,
     pinger_manager: &State<PingerManager>,
     form: Form<Contextual<'a, CreateMonitor>>,
-) -> RedirectResponse {
+) -> RedirectResult {
     match form.value {
         Some(ref data) => {
             let monitor = database::Monitor {
@@ -223,7 +220,7 @@ pub async fn delete_monitor<'a>(
     pool: &State<Pool<Sqlite>>,
     pinger_manager: &State<PingerManager>,
     id: i64,
-) -> RedirectResponse {
+) -> RedirectResult {
     database::Monitor::delete(id, pool).await?;
     pinger_manager.remove_pinger(id).await;
 

@@ -32,7 +32,7 @@ impl DateOffset {
     pub fn normalize(&self) -> Self {
         DateOffset {
             start: DateOffset::normalize_date(self.start).unwrap(),
-            end: DateOffset::normalize_date(self.end).unwrap(),
+            end: self.end,
         }
     }
 

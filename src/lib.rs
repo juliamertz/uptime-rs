@@ -29,8 +29,7 @@ pub struct RedirectResponder {
     pub redirect_uri: Option<Origin<'static>>,
 }
 
-pub type RedirectResponse = Result<RedirectResponder, AppError>;
-
+pub type RedirectResult = Result<RedirectResponder, AppError>;
 pub type TemplateResult<'a> = Result<utils::TemplateResponse<'a>, AppError>;
 pub type JsonResult<'a> = Result<utils::JsonResponse<'a>, AppError>;
 

@@ -1,9 +1,38 @@
+<style>
+  .mbl_closed {
+    transform: translateX(-100%);
+  }
+
+  .mbl_open {
+    transform: translateX(0);
+  }
+</style>
+<script type="module">
+  class MobileListView {
+    constructor() {
+      this.element = selector("#mobile_list_view");
+    }
+
+    open() {
+      this.element.classList.add("mbl_open");
+      this.element.classList.remove("mbl_closed");
+    }
+
+    close() {
+      this.element.classList.add("mbl_closed");
+      this.element.classList.remove("mbl_open");
+    }
+  }
+
+  window.MobileListView = new MobileListView();
+</script>
+
 <div
   id="mobile_list_view"
-  class="hidden bg-overlay pt-12 p-3 absolute w-full z-20 inset-0 mt-[-.75rem] shadow-md rounded-b-md"
+  class="bg-overlay pt-12 p-3 absolute transition-all w-[80vw] h-[100vh] z-20 inset-0 mt-[-.75rem] shadow-md rounded-r-md"
 >
   <button
-    hx-on:click="selector('#mobile_list_view').style.display = 'none'"
+    hx-on:click="MobileListView.close()"
     class="aspect-square sm:hidden w-8 h-8 top-3 right-3 md:right-6 lg:right-12 absolute"
   >
     {% include "icons/close.svg" %}

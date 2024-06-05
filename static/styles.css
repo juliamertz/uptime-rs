@@ -35,11 +35,11 @@
 .ct-series-c .ct-line {
   @apply stroke-gold;
 }
+.ct-label {
+  @apply text-subtle;
+}
 .ct-label.ct-horizontal {
   @apply rotate-[-45deg] mt-3;
-}
-.ct-label {
-  @apply text-text;
 }
 .ct-grid {
   @apply stroke-highlightHigh;
