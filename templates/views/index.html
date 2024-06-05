@@ -1,4 +1,11 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="text-5xl text-text">Hello index!</h1>
+  <nav class="w-full h-9 mb-3 gap-3 transition-all">
+    <section>
+      <a href="/monitor/create" class="self-start">
+        <button class="button bg-love">Create new monitor</button>
+      </a>
+    </section>
+  </nav>
+  {{ monitor_list_view|safe }}
 {% endblock %}

@@ -1,5 +1,6 @@
 # Todo
 
+- [ ] Add simple one user auth
 - [x] Refactor database pool, shared pool stored in rocket state.
 - [ ] Optimize average response time calculation
   - [x] Seperate table for keeping track of all sort of stats

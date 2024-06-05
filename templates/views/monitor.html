@@ -1,16 +1,25 @@
 {% extends "layout.html" %}
 
 {% block content %}
+  <button
+    hx-on:click="$('#mobile_list_view').style.display = 'block'"
+    class="aspect-square sm:hidden w-8 h-8 top-3 right-3 md:right-6 lg:right-12 absolute"
+  >
+    {% include "icons/menu.svg" %}
+  </button>
+  {% include "components/mobile_list_view.html" %}
   <div
     class="gap-3 grid sm:grid-cols-[240px,auto] transition-all lg:grid-cols-[320px,auto]"
   >
     <nav class="flex-col gap-3 hidden sm:flex">
-      <a href="/monitor/create" class="button self-start">Create new monitor</a>
+      <a href="/monitor/create" class="self-start">
+        <button class="button bg-love">Create new monitor</button>
+      </a>
       {{ monitor_list_view|safe }}
     </nav>
-    <div class="min-h-0 min-w-0 w-full">
+    <div class="min-h-0 min-w-0 w-full mt-[-6px]">
       <section>
-        <h1 class="text-3xl font-semibold">{{ monitor.name }}</h1>
+        <h1 class="text-4xl font-semibold">{{ monitor.name }}</h1>
         <p class="text-md">
           <a class="text-love hover:underline" href="{{ monitor.address() }}">
             {{ monitor.hostname() }}
@@ -18,7 +27,7 @@
         </p>
       </section>
       <section
-        class="mt-3 grid bg-surface overflow-hidden rounded-full shadow-md grid-cols-3 h-12 w-full"
+        class="mt-1 grid bg-surface overflow-hidden rounded-full shadow-md grid-cols-3 h-12 w-full"
       >
         <button
           class="hover:bg-overlay rounded-full"

@@ -143,24 +143,6 @@ pub async fn monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateRe
 //
 // Json routes
 //
-// #[get("/<id>")]
-// pub async fn get_monitor<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> JsonResponse<'a> {
-//     let query_result = database::Monitor::by_id(id, &pool).await?;
-//
-//     let serialized = serde_json::to_string(&query_result)?;
-//     // match serialized {
-//     //     Ok(json) => json_response(Status::Ok, Some(json)),
-//     //     Err(_) => json_response(Status::InternalServerError, None),
-//     // }
-// }
-
-// #[get("/")]
-// pub async fn all_monitors<'a>(pool: &State<Pool<Sqlite>>) -> JsonResponse<'a> {
-//     let monitors = database::Monitor::all(&pool).await;
-//
-//     serde_response(Status::Ok, serde_json::to_string(&monitors))
-// }
-
 #[post("/<id>/pause")]
 pub async fn pause_monitor(
     pool: &State<Pool<Sqlite>>,

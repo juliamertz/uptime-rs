@@ -2,7 +2,7 @@
   {% if let Some(data) = uptime_graph %}
     <section class="bg-surface rounded-md shadow-md mt-3">
       <div
-        class="h-12 w-full p-3 flex flex-row-reverse gap-1"
+        class="h-12 w-full py-3 px-2 flex flex-row-reverse gap-1"
         id="uptime_graph"
       >
         {% for ping in data %}
@@ -20,9 +20,9 @@
     </section>
 
     <div
-      class="mt-3 relative w-full aspect-[16/8] bg-surface shadow-md rounded-md overflow-hidden"
+      class="mt-3 p-3 relative w-full aspect-[16/9] bg-surface shadow-md rounded-md overflow-hidden"
     >
-      <canvas id="uptime_chart"></canvas>
+      <div id="uptime_chart" class="h-full w-[calc(100%+20px)]"></div>
     </div>
 
     <section
@@ -54,39 +54,40 @@
 
 <script>
   (() => {
-    const uptime_graph = $("#uptime_graph");
-    const children = Array.from(uptime_graph.children).reverse();
+    const children = Array.from($("#uptime_graph").children).reverse();
 
-    const data = {
-      labels: [],
-      values: [],
-    };
-
+    const data = { labels: [], values: [] };
     for (const ping of children) {
       const attrs = dattributes(ping, ["duration", "timestamp"]);
 
       data.values.push(attrs.duration);
-      data.labels.push(
-        attrs.timestamp ? new Date(attrs.timestamp).toLocaleTimeString() : "-",
-      );
+      if (attrs.timestamp) data.labels.push(new Date(attrs.timestamp));
     }
 
-    new Chart($("#uptime_chart"), {
-      type: "line",
-      responsive: true,
-      aspectRatio: 16 / 9,
-      data: {
-        labels: data.labels,
-        datasets: [
-          {
-            label: "Response time (ms)",
-            data: data.values,
-            fill: false,
-            borderColor: "#9ccfd8",
-            tension: 0.1,
-          },
-        ],
+    /**
+     * Format a date to HH:MM
+     * @param {Date} date
+     * @returns {string}
+     */
+    function formatDate(date) {
+      const iso = date.toISOString();
+      return iso.match(/\d\d:\d\d/)[0];
+    }
+
+    new Chartist.Line(
+      "#uptime_chart",
+      {
+        labels: data.labels.map((date, i) =>
+          i % 2 !== 0 ? "" : formatDate(date),
+        ),
+        series: [data.values],
       },
-    });
+      {
+        lineSmooth: Chartist.Interpolation.none(),
+        axisY: {
+          labelInterpolationFnc: (value) => value + "ms",
+        },
+      },
+    );
   })();
 </script>

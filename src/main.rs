@@ -2,6 +2,7 @@ pub mod database;
 mod ping;
 mod routes;
 mod templates;
+mod time;
 mod utils;
 
 use database::DatabaseModel;

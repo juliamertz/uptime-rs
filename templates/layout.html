@@ -3,8 +3,10 @@
   <head>
     {% include "head.html" %}
   </head>
-  <body>
-    <main class="mt-3 px-12">
+  <body position="relative">
+    <main
+      class="mt-3 px-3 md:px-6 lg:px-12 max-w-7xl relative left-1/2 translate-x-[-50%]"
+    >
       {% block content %}
         <h1>Hello world!</h1>
       {% endblock %}

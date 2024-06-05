@@ -1,0 +1,12 @@
+<div
+  id="mobile_list_view"
+  class="hidden bg-overlay pt-12 p-3 absolute w-full z-20 inset-0 mt-[-.75rem] shadow-md rounded-b-md"
+>
+  <button
+    hx-on:click="$('#mobile_list_view').style.display = 'none'"
+    class="aspect-square sm:hidden w-8 h-8 top-3 right-3 md:right-6 lg:right-12 absolute"
+  >
+    {% include "icons/close.svg" %}
+  </button>
+  {{ monitor_list_view|safe }}
+</div>
