@@ -22,9 +22,11 @@
             data-bad="{{ ping.bad }}"
           ></div>
         {% endfor %}
-        {% for i in (0 .. 30) %}
-          <div class="bg-overlay w-full h-full rounded-md"></div>
-        {% endfor %}
+        {% if data.len() < 30  %}
+          {% for i in (0 .. 30 - data.len()) %}
+            <div class="bg-overlay w-full h-full rounded-md"></div>
+          {% endfor %}
+        {% endif %}
       </div>
     </section>
 
@@ -65,7 +67,9 @@
 <script defer>
   (() => {
    {% if let Some(data) = uptime_graph %}
-   const data = {{- serde_json::to_string(data).unwrap()|safe -}};
+     const data = {{- serde_json::to_string(data).unwrap()|safe -}};
+   {% else %}
+   alert("WTK")
    {% endif %}
 
     const format_date = function (date) {

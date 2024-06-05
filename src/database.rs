@@ -296,7 +296,7 @@ impl MonitorPing {
         let (start, end) = offset.normalize().pretty_strings();
         let query_result = sqlx::query!(
             r#"
-            SELECT * FROM monitor_ping WHERE monitor_id=? AND timestamp BETWEEN ? AND ?;
+            SELECT * FROM monitor_ping WHERE monitor_id=? AND timestamp BETWEEN ? AND ? LIMIT 50;
             "#,
             monitor_id,
             start,

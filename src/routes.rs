@@ -144,9 +144,6 @@ pub async fn monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateRe
     Ok(template_response(Status::Ok, view))
 }
 
-//
-// Json routes
-//
 #[post("/<id>/pause")]
 pub async fn pause_monitor(
     pool: &State<Pool<Sqlite>>,
