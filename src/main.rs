@@ -5,9 +5,12 @@ mod templates;
 mod time;
 mod utils;
 
+use std::process::exit;
+
 use database::DatabaseModel;
 use rocket::fs::FileServer;
 use rocket_async_compression::CachedCompression;
+use time::DateOffset;
 
 #[macro_use]
 extern crate rocket;

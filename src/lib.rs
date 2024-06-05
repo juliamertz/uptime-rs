@@ -32,6 +32,7 @@ pub struct RedirectResponder {
 pub type RedirectResponse = Result<RedirectResponder, AppError>;
 
 pub type TemplateResult<'a> = Result<utils::TemplateResponse<'a>, AppError>;
+pub type JsonResult<'a> = Result<utils::JsonResponse<'a>, AppError>;
 
 pub struct AppError {
     pub status: Status,

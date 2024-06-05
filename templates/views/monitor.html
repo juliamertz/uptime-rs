@@ -1,8 +1,16 @@
 {% extends "layout.html" %}
 
+{% block head %}
+  <link
+    rel="stylesheet"
+    href="//cdn.jsdelivr.net/chartist.js/latest/chartist.min.css"
+  />
+  <script src="//cdn.jsdelivr.net/chartist.js/latest/chartist.min.js"></script>
+{% endblock %}
+
 {% block content %}
   <button
-    hx-on:click="$('#mobile_list_view').style.display = 'block'"
+    hx-on:click="selector('#mobile_list_view').style.display = 'block'"
     class="aspect-square sm:hidden w-8 h-8 top-3 right-3 md:right-6 lg:right-12 absolute"
   >
     {% include "icons/menu.svg" %}

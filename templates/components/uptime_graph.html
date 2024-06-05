@@ -1,3 +1,12 @@
+{% if let Some(data) = uptime_graph %}
+<style>
+  {% for i in ( 0 .. data.len())  %}
+    {% if data[i].bad %}
+      .ct-point:nth-child({{ data.len() - i + 1 }}) { stroke: #eb6f92 }
+    {% endif %}
+  {% endfor %}
+</style>
+{% endif %}
 <section class="@container">
   {% if let Some(data) = uptime_graph %}
     <section class="bg-surface rounded-md shadow-md mt-3">
@@ -13,7 +22,7 @@
             data-bad="{{ ping.bad }}"
           ></div>
         {% endfor %}
-        {% for i in (0 .. 30 - data.len()) %}
+        {% for i in (0 .. 30) %}
           <div class="bg-overlay w-full h-full rounded-md"></div>
         {% endfor %}
       </div>
@@ -36,11 +45,12 @@
       </div>
       <div>
         <h4 class="font-semibold text-xl">Last response</h4>
-        {% if let Some(val) = data.first() %}
+        {% match data.first() %}
+          {% when Some with (val) %}
           <p class="text-md">{{ val.duration_ms }}ms</p>
-        {% else %}
-          <p>Not available</p>
-        {% endif %}
+          {% when None %}
+          <p class="text-md">Not available</p>
+        {% endmatch %}
       </div>
       <div>
         <h4 class="font-semibold text-xl">Interval</h4>
@@ -52,42 +62,35 @@
   {% endif %}
 </section>
 
-<script>
+<script defer>
   (() => {
-    const children = Array.from($("#uptime_graph").children).reverse();
+   {% if let Some(data) = uptime_graph %}
+   const data = {{- serde_json::to_string(data).unwrap()|safe -}};
+   {% endif %}
 
-    const data = { labels: [], values: [] };
-    for (const ping of children) {
-      const attrs = dattributes(ping, ["duration", "timestamp"]);
-
-      data.values.push(attrs.duration);
-      if (attrs.timestamp) data.labels.push(new Date(attrs.timestamp));
-    }
-
-    /**
-     * Format a date to HH:MM
-     * @param {Date} date
-     * @returns {string}
-     */
-    function formatDate(date) {
-      const iso = date.toISOString();
+    const format_date = function (date) {
+      const iso = new Date(date).toISOString();
       return iso.match(/\d\d:\d\d/)[0];
-    }
+    };
 
-    new Chartist.Line(
-      "#uptime_chart",
-      {
-        labels: data.labels.map((date, i) =>
-          i % 2 !== 0 ? "" : formatDate(date),
-        ),
-        series: [data.values],
-      },
-      {
-        lineSmooth: Chartist.Interpolation.none(),
-        axisY: {
-          labelInterpolationFnc: (value) => value + "ms",
+    const create = function (data) {
+      new Chartist.Line(
+        "#uptime_chart",
+        {
+          labels: data.map((ping, i) =>
+            i % 2 !== 0 ? "" : format_date(ping.timestamp),
+          ),
+          series: [data.map((ping) => ping.duration_ms)],
         },
-      },
-    );
+        {
+          lineSmooth: Chartist.Interpolation.none(),
+          axisY: {
+            labelInterpolationFnc: (value) => value + "ms",
+          },
+        },
+      );
+    };
+
+    create(data);
   })();
 </script>

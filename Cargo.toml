@@ -3,8 +3,6 @@ name = "uptime-rs"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 async-trait = "0.1.80"
 dotenv = "0.15.0"
@@ -16,8 +14,7 @@ sqlx = { version = "0.7", features = [ "runtime-tokio", "sqlite" ] }
 tokio = { version = "1.37.0", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 chrono = "0.4.38"
-cronjob = "0.4.17"
 askama = { version = "0.12.1", features = ["with-rocket"] }
 askama_rocket = "0.12.0"
-rocket_dyn_templates = "0.2.0"
 rocket_async_compression = "0.6.0"
+minify-html-onepass = "0.15.0"

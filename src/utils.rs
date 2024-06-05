@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use askama::Template;
+use minify_html_onepass::Cfg;
 use rand::Rng;
 use rocket::http::Status;
 use rocket::response::{content, status};
@@ -31,7 +32,18 @@ pub fn template_response<'a>(
     template: impl Template,
 ) -> status::Custom<content::RawHtml<String>> {
     match template.render() {
-        Ok(content) => status::Custom(status, content::RawHtml(content)),
+        Ok(mut content) => {
+            match minify_html_onepass::in_place_str(
+                content.as_mut(),
+                &Cfg {
+                    minify_css: true,
+                    minify_js: true,
+                },
+            ) {
+                Ok(minified) => status::Custom(status, content::RawHtml(minified.to_string())),
+                Err(_) => status::Custom(status, content::RawHtml(content)),
+            }
+        }
         Err(_) => {
             let content = format!("<h1>{}</h1>", status.reason().unwrap_or_else(|| "Unknown"));
             status::Custom(status, content::RawHtml(content))

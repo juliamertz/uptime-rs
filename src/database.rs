@@ -1,6 +1,7 @@
 use crate::{
     ping::{self, PingerManager},
-    utils,
+    time::DateOffset,
+    utils::{self, json_response, serde_response},
 };
 use async_trait::async_trait;
 use dotenv::dotenv;
@@ -252,7 +253,9 @@ impl DatabaseModel for Monitor {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct MonitorPing {
+    #[serde(skip_serializing)]
     pub id: i64,
+    #[serde(skip_serializing)]
     pub monitor_id: i64,
     pub timestamp: String,
     pub status: Status,
@@ -284,6 +287,36 @@ impl MonitorPing {
     //     }
     // }
     // pub async fn between_dates(pool: &Pool<Sqlite>, dates: (String,String))
+
+    pub async fn between(
+        pool: &Pool<Sqlite>,
+        monitor_id: i64,
+        offset: DateOffset,
+    ) -> Result<Vec<Self>, sqlx::Error> {
+        let (start, end) = offset.normalize().pretty_strings();
+        let query_result = sqlx::query!(
+            r#"
+            SELECT * FROM monitor_ping WHERE monitor_id=? AND timestamp BETWEEN ? AND ?;
+            "#,
+            monitor_id,
+            start,
+            end
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(query_result
+            .iter()
+            .map(|monitor_ping| MonitorPing {
+                id: monitor_ping.id,
+                status: Status::from_code(monitor_ping.status as u16).expect("Invalid status code"),
+                timestamp: monitor_ping.timestamp.clone(),
+                monitor_id: monitor_ping.monitor_id,
+                duration_ms: monitor_ping.duration_ms,
+                bad: monitor_ping.bad.to_bool(),
+            })
+            .collect())
+    }
 
     pub async fn last_n(pool: &Pool<Sqlite>, monitor_id: i64, n: i64) -> Vec<Self> {
         if let Ok(monitor_pings) = sqlx::query!(

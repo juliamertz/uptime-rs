@@ -2,6 +2,7 @@ use crate::{
     database::{self, DatabaseModel},
     ping::{self, PingerManager},
     templates::*,
+    time::DateOffset,
     utils::{self, template_response, TemplateResponse},
 };
 use askama_rocket::Template;
@@ -122,9 +123,12 @@ pub async fn monitor_status_badge<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> Te
 pub async fn monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
     let monitor = database::Monitor::by_id(id, &pool).await?;
     let uptime_data = database::MonitorPing::last_n(pool, id, 30).await;
+    let offset = DateOffset::new(chrono::Duration::days(2));
+    let test = database::MonitorPing::between(pool, id, offset).await?;
+    // dbg!(&test);
 
     let uptime_graph = UptimeGraphTemplate {
-        uptime_graph: Some(uptime_data),
+        uptime_graph: Some(test),
         monitor: database::Monitor::by_id(id, pool).await?,
     };
 

@@ -26,38 +26,14 @@
 }
 
 /* Chartist stuff */
-.ct-series-a .ct-bar,
-.ct-series-a .ct-line,
-.ct-series-a .ct-point,
-.ct-series-a .ct-slice-donut {
+.ct-series-a .ct-line {
   @apply stroke-foam;
 }
-.ct-series-a .ct-area,
-.ct-series-a .ct-slice-donut-solid,
-.ct-series-a .ct-slice-pie {
-  @apply fill-foam;
-}
-.ct-series-b .ct-bar,
-.ct-series-b .ct-line,
-.ct-series-b .ct-point,
-.ct-series-b .ct-slice-donut {
+.ct-series-b .ct-line {
   @apply stroke-rose;
 }
-.ct-series-b .ct-area,
-.ct-series-b .ct-slice-donut-solid,
-.ct-series-b .ct-slice-pie {
-  @apply fill-rose;
-}
-.ct-series-c .ct-bar,
-.ct-series-c .ct-line,
-.ct-series-c .ct-point,
-.ct-series-c .ct-slice-donut {
+.ct-series-c .ct-line {
   @apply stroke-gold;
-}
-.ct-series-c .ct-area,
-.ct-series-c .ct-slice-donut-solid,
-.ct-series-c .ct-slice-pie {
-  @apply fill-gold;
 }
 .ct-label.ct-horizontal {
   @apply rotate-[-45deg] mt-3;
@@ -70,4 +46,9 @@
 }
 .ct-chart-line {
   margin-left: -10px;
+}
+.ct-series-a .ct-point,
+.ct-series-b .ct-point,
+.ct-series-c .ct-point {
+  @apply stroke-pine;
 }
