@@ -1,3 +1,4 @@
+use crate::time::PrettyPrint;
 use crate::{database, utils, DatabaseModel};
 use rocket::{futures::lock::Mutex, http::Status};
 use serde::{Deserialize, Serialize};
@@ -78,7 +79,7 @@ impl Pinger {
                 let ping = database::MonitorPing {
                     id: utils::gen_id(),
                     monitor_id: self.monitor.id,
-                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    timestamp: chrono::Local::now().pretty_string(),
                     status: Status::from_code(ping.status.code).unwrap_or(Status::ImATeapot),
                     duration_ms: ping.duration.as_millis() as i64,
                     bad: false,
@@ -96,7 +97,7 @@ impl Pinger {
                 let ping = database::MonitorPing {
                     id: utils::gen_id(),
                     monitor_id: self.monitor.id,
-                    timestamp: chrono::Utc::now().to_rfc3339(),
+                    timestamp: chrono::Local::now().pretty_string(),
                     status: Status::Ok,
                     duration_ms: ping.duration.as_millis() as i64,
                     bad: true,

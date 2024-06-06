@@ -12,7 +12,7 @@ use rocket::{
     State,
 };
 use sqlx::{Pool, Sqlite};
-use uptime_rs::{CreateMonitor, RedirectResponder, RedirectResult, TemplateResult};
+use uptime_rs::{AppError, CreateMonitor, RedirectResponder, RedirectResult, TemplateResult};
 use utils::{serde_response, JsonResponse};
 
 //
@@ -122,10 +122,10 @@ pub async fn monitor_status_badge<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> Te
 #[get("/<id>")]
 pub async fn monitor_view<'a>(pool: &State<Pool<Sqlite>>, id: i64) -> TemplateResult {
     let monitor = database::Monitor::by_id(id, &pool).await?;
-    let uptime_data = database::MonitorPing::last_n(pool, id, 30).await;
-    // let offset = DateOffset::new(chrono::Duration::days(2));
-    // dbg!(&offset.normalize().pretty_strings());
-    // let uptime_data = database::MonitorPing::between(pool, id, offset).await?;
+    // let uptime_data = database::MonitorPing::last_n(pool, id, 30).await;
+    let offset = DateOffset::new(chrono::Duration::days(2));
+    dbg!(&offset.normalize().pretty_strings());
+    let uptime_data = database::MonitorPing::between(pool, id, offset, 50).await?;
 
     let uptime_graph = UptimeGraphTemplate {
         uptime_graph: Some(uptime_data),
@@ -235,46 +235,34 @@ pub async fn create_monitor<'a>(
     form: Form<Contextual<'a, CreateMonitor>>,
     pool: &State<Pool<Sqlite>>,
     manager: &State<PingerManager>,
-) -> String {
+) -> RedirectResult {
     match form.value {
         Some(ref data) => {
-            let mut monitor = database::Monitor {
+            let monitor = database::Monitor {
+                id: 0, // field ignored, this is an autoincrement field
                 interval: data.interval,
                 protocol: ping::Protocol::HTTP,
-                id: 0,
                 name: data.name.clone(),
                 ip: data.ip.clone(),
                 port: data.port,
                 paused: false,
             };
 
-            let response = match monitor.create(&pool).await {
-                Ok(result) => {
-                    monitor.id = result.id;
-                    "ok".into()
-                }
-                Err(_) => "err".into(),
-            };
-
+            let result = monitor.create(&pool).await?;
             let interval = monitor.interval.clone();
 
             manager
                 .add_pinger(ping::Pinger::new(monitor, interval, || {}))
                 .await;
 
-            response
+            Ok(RedirectResponder {
+                content: "ok".into(),
+                redirect_uri: Some(uri!("/monitor", monitor_view(result.id))),
+            })
         }
-        None => {
-            "no".into()
-            // let msg = "No very bad input!";
-            // Response::build()
-            //     .status(Status::BadRequest)
-            //     .sized_body(msg.len(), Cursor::new(msg))
-            //     .finalize()
-            //     .body()
-            //     .to_string()
-            //     .await
-            //     .unwrap()
-        }
+        None => Err(AppError {
+            status: Status::BadRequest,
+            message: "Invalid form data".to_string(),
+        }),
     }
 }
