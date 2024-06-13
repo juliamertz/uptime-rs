@@ -5,11 +5,11 @@ mod templates;
 mod time;
 mod utils;
 
-use std::process::exit;
-
 use database::DatabaseModel;
 use rocket::fs::FileServer;
 use rocket_async_compression::CachedCompression;
+
+use std::process::exit;
 use time::DateOffset;
 
 #[macro_use]
@@ -19,6 +19,18 @@ extern crate rocket;
 async fn rocket() -> _ {
     let db_pool = database::initialize().await;
     let mut monitor_pool = ping::PingerManager::new();
+
+    let offset = DateOffset::new(chrono::Duration::days(1));
+    dbg!(&offset);
+    let normalized = offset.normalize();
+    dbg!(&normalized);
+
+    // let result = database::MonitorPing::between(&db_pool, 10, offset, 1000)
+    //     .await
+    //     .unwrap();
+    //
+    // dbg!(&result, result.len());
+    // exit(0);
 
     for monitor in database::Monitor::all(&db_pool).await.unwrap() {
         let pinger = ping::Pinger::new(monitor, 3, || {});
