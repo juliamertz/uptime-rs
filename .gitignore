@@ -3,8 +3,8 @@
 *.db
 node_modules/
 package-lock.json
-*.lock
 static/_dist.css
 bun.lockb
 Cargo.lock
 static/chart.js
+.direnv/

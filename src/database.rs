@@ -154,7 +154,7 @@ impl Monitor {
 #[async_trait]
 impl DatabaseModel for Monitor {
     async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
-        let schema = utils::parse_sql_file("schemas/monitor.sql").await?;
+        let schema = utils::parse_sql_file("src/schemas/monitor.sql").await?;
         sqlx::query(&schema).execute(pool).await?;
 
         Ok(())
@@ -366,7 +366,7 @@ impl ToBool for i64 {
 #[async_trait]
 impl DatabaseModel for MonitorPing {
     async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
-        let schema = utils::parse_sql_file("schemas/monitor_ping.sql").await?;
+        let schema = utils::parse_sql_file("src/schemas/monitor_ping.sql").await?;
         sqlx::query(&schema).execute(pool).await?;
 
         Ok(())
@@ -466,7 +466,7 @@ pub struct MonitorStats {
 #[async_trait]
 impl DatabaseModel for MonitorStats {
     async fn initialize(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
-        let schema = utils::parse_sql_file("schemas/monitor_stats.sql").await?;
+        let schema = utils::parse_sql_file("src/schemas/monitor_stats.sql").await?;
         sqlx::query(&schema).execute(pool).await?;
 
         Ok(())
